@@ -165,7 +165,7 @@ namespace rps.Controllers
                         var errorDetails = await tokenResponse.Content.ReadAsStringAsync();
                         _logger.LogError("Google token exchange failed. Status: {StatusCode}, Response: {Response}",
                                         tokenResponse.StatusCode, errorDetails);
-                        return BadRequest($"Error retrieving access token: {tokenResponse}, {Response}");
+                        return BadRequest($"Error retrieving access token: {tokenRequest}, {errorDetails}");
                     }
 
 
