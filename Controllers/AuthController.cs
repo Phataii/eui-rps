@@ -142,10 +142,9 @@ namespace rps.Controllers
             {
                 return BadRequest("Authorization code not provided.");
             }
-            Console.Write(code);
-                var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
-                var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
-                var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
+            var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+            var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+            var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
 
             using (var httpClient = new HttpClient())
             {
@@ -165,7 +164,7 @@ namespace rps.Controllers
                         var errorDetails = await tokenResponse.Content.ReadAsStringAsync();
                         _logger.LogError("Google token exchange failed. Status: {StatusCode}, Response: {Response}",
                                         tokenResponse.StatusCode, errorDetails);
-                        return BadRequest($"Error retrieving access token: {tokenRequest}, {errorDetails}");
+                        return BadRequest($"Error retrieving access token: {clientId + clientSecret + redirectUri}, {code}");
                     }
 
 
@@ -237,6 +236,73 @@ namespace rps.Controllers
             }
         }
         
+
+        ////////// HAD TO CREATE A MANUAL LOGIN CAUSE OF THE SSO ISSUE
+        /// 
+        /// 
+        /// [HttpPost]
+        // public async Task<IActionResult> Login(string email, string password)
+        // {
+        //     if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+        //     {
+        //         return BadRequest("Email and password are required.");
+        //     }
+
+        //     // Step 1: Find the user by email
+        //     var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        //     if (user == null)
+        //     {
+        //         return Unauthorized("Invalid email or password.");
+        //     }
+
+        //     // Step 2: Validate password (assuming it's hashed)
+        //     var passwordHasher = new PasswordHasher<User>();
+        //     var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+
+        //     if (result != PasswordVerificationResult.Success)
+        //     {
+        //         return Unauthorized("Invalid email or password.");
+        //     }
+
+        //     // Step 3: Generate JWT token
+        //     var jwtHelper = new JwtHelper();
+        //     var token = jwtHelper.GenerateJwtToken(user);
+
+        //     // Step 4: Get roles
+        //     var userRoles = await _context.UserRoles
+        //         .Where(ur => ur.UserId == user.Id)
+        //         .Select(ur => ur.RoleName.RoleName) // Adjust this based on your navigation model
+        //         .ToListAsync();
+
+        //     // Step 5: Set cookies
+        //     Response.Cookies.Append("jwt", token, new CookieOptions
+        //     {
+        //         HttpOnly = true,
+        //         Secure = true,
+        //         SameSite = SameSiteMode.Lax,
+        //         Expires = DateTime.UtcNow.AddHours(1)
+        //     });
+
+        //     if (userRoles.Any())
+        //     {
+        //         var rolesString = string.Join(",", userRoles);
+        //         Response.Cookies.Append("UserRole", rolesString, new CookieOptions
+        //         {
+        //             HttpOnly = true,
+        //             Secure = true,
+        //             SameSite = SameSiteMode.Lax,
+        //             Expires = DateTime.UtcNow.AddHours(1)
+        //         });
+        //     }
+
+        //     return Redirect("/dashboard");
+        // }
+
+        /// <summary>
+        /// ////
+        /// </summary>
+        /// <param name="r"></param>
+        /// <returns></returns>
         [HttpPost("create-role")]
         public async Task<IActionResult> CreateRole([FromBody] RoleDto r)
         {
