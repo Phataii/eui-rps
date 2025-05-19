@@ -120,28 +120,43 @@ namespace rps.Controllers
         [HttpGet("sso")]
         public IActionResult LoginWithGoogle()
         {
-            // var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
             var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
             var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
-            var state = Guid.NewGuid().ToString(); // Optional for CSRF protection
-            var scope = "openid email profile";
+            var state = Guid.NewGuid().ToString();
 
+            // Store in session
+            HttpContext.Session.SetString("oauth_state", state);
+
+            var scope = "openid email profile";
             var googleLoginUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
                 $"client_id={clientId}" +
                 $"&redirect_uri={redirectUri}" +
                 $"&response_type=code" +
-                $"&scope={scope}";
+                $"&scope={scope}" +
+                $"&state={state}";
 
             return Redirect(googleLoginUrl);
         }
- 
+
+
         [HttpGet("signin-google")]
-        public async Task<IActionResult> Google(string code)
-        {
+        public async Task<IActionResult> Google(string code, string state)
+        {   
+            var savedState = HttpContext.Session.GetString("oauth_state");
+
+            if (state != savedState || string.IsNullOrEmpty(state))
+            {
+                return BadRequest("Invalid OAuth state. Possible CSRF attack.");
+            }
+
+             // ✅ Clean up after verifying
+            HttpContext.Session.Remove("oauth_state");
+
             if (string.IsNullOrEmpty(code))
             {
                 return BadRequest("Authorization code not provided.");
             }
+
             var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
             var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
             var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
@@ -160,13 +175,9 @@ namespace rps.Controllers
 
                 var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
                 if (!tokenResponse.IsSuccessStatusCode)
-                    {
-                        var errorDetails = await tokenResponse.Content.ReadAsStringAsync();
-                        _logger.LogError("Google token exchange failed. Status: {StatusCode}, Response: {Response}",
-                                        tokenResponse.StatusCode, errorDetails);
-                        return BadRequest($"Error retrieving access token: {clientId + clientSecret + redirectUri}, {code}");
-                    }
-
+                {
+                    return BadRequest($"Error retrieving access token. {tokenRequest}");
+                }
 
                 var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
                 var tokenResult = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenContent);
@@ -187,25 +198,15 @@ namespace rps.Controllers
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userInfo.Email);
                 if (user == null)
                 {
-                    return Unauthorized($"The email '{userInfo.Email}' could be not found on the result processing system. Contact ICT");
+                    return Unauthorized($"The email '{userInfo.Email}' could be not found on the result processing system.");
                 }
-
-                // Send OTP
-                // string templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Views/Home/EmailTemp", "OTP.html");
-                // var placeholders = new Dictionary<string, string>
-                // {
-                    
-                //     { "OTP", "2345" },
-                //     { "CurrentYear", DateTime.Now.Year.ToString() }
-                // };
-                // await _emailService.SendEmailAsync(userInfo.Email, "Login Attempt", templatePath, placeholders, true);
 
                 // Step 4: Generate JWT token
                 var jwtHelper = new JwtHelper();
                 var token = jwtHelper.GenerateJwtToken(user);
 
                 //Check the role of the authenticated user
-               // Check the role of the authenticated user
+                // Check the role of the authenticated user
                 var userRoles = await _context.UserRoles
                     .Where(ur => ur.UserId == user.Id)
                     .Select(ur => ur.RoleName.RoleName) // Assuming there's a navigation property to Role
