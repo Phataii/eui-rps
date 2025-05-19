@@ -471,22 +471,22 @@ namespace rps.Controllers
         [Route("settings")]
         public async Task<IActionResult> Settings()
         {
-            var loggedInUser = await _userHelper.GetLoggedInUser(Request);
-            if (loggedInUser == null)
-            {
-                return Redirect("/");
-            }
+            // var loggedInUser = await _userHelper.GetLoggedInUser(Request);
+            // if (loggedInUser == null)
+            // {
+            //     return Redirect("/");
+            // }
 
-            var user = await _userHelper.GetLoggedInUser(Request);
-            if (user == null)
-            {
-                return Unauthorized("User not found.");
-            }
+            // var user = await _userHelper.GetLoggedInUser(Request);
+            // if (user == null)
+            // {
+            //     return Unauthorized("User not found.");
+            // }
 
-            if (user.IsActive == false)
-            {
-                return Forbid("Access Denied.");
-            }
+            // if (user.IsActive == false)
+            // {
+            //     return Forbid("Access Denied.");
+            // }
             return View();
         }
 
