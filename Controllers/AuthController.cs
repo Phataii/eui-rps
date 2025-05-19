@@ -125,32 +125,32 @@ namespace rps.Controllers
             var state = Guid.NewGuid().ToString();
 
             // Store in session
-            HttpContext.Session.SetString("oauth_state", state);
+            // HttpContext.Session.SetString("oauth_state", state);
 
             var scope = "openid email profile";
             var googleLoginUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
                 $"client_id={clientId}" +
                 $"&redirect_uri={redirectUri}" +
                 $"&response_type=code" +
-                $"&scope={scope}" +
-                $"&state={state}";
+                $"&scope={scope}";
+                // $"&state={state}";
 
             return Redirect(googleLoginUrl);
         }
 
 
         [HttpGet("signin-google")]
-        public async Task<IActionResult> Google(string code, string state)
+        public async Task<IActionResult> Google(string code)
         {   
-            var savedState = HttpContext.Session.GetString("oauth_state");
+            // var savedState = HttpContext.Session.GetString("oauth_state");
 
-            if (state != savedState || string.IsNullOrEmpty(state))
-            {
-                return BadRequest("Invalid OAuth state. Possible CSRF attack.");
-            }
+            // if (state != savedState || string.IsNullOrEmpty(state))
+            // {
+            //     return BadRequest("Invalid OAuth state. Possible CSRF attack.");
+            // }
 
-             // ✅ Clean up after verifying
-            HttpContext.Session.Remove("oauth_state");
+            //  // ✅ Clean up after verifying
+            // HttpContext.Session.Remove("oauth_state");
 
             if (string.IsNullOrEmpty(code))
             {
