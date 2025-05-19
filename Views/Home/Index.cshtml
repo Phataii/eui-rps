@@ -57,27 +57,43 @@
                         </a>
                       </div>
                       <div class="form_container">
-                        <form class="app-form">
+                        <form method="post" id="loginForm" class="app-form">
                           <div class="mb-3 text-center">
-                           @* <a href="/api/transcript/generate" class="btn btn-primary">
-                              Download Transcript
-                          </a> *@
-
-
                             <h3>Login to your Account</h3>
-                            <p class="f-s-12 text-secondary">Get started with the result portal,and enjoy the experience.</p>
+                            <p class="f-s-12 text-secondary">Get started with the result portal, and enjoy the experience.</p>
                           </div>
-                          <div class="mb-6">
+
+                          <div class="mb-3">
+                            <label for="email" class="form-label">University Email</label>
+                            <input type="email" name="email" id="email" class="form-control" placeholder="john.doe@edouniversity.edu.ng">
+                          </div>
+
+                          <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" name="password" id="password" class="form-control" placeholder="Enter your password">
+                          </div>
+
+                          <div class="mb-3 text-center">
+                            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                          </div>
+
+
+                          
+                           <div class="mb-3 text-center">
+                            <a href="/api/auth/sso" class="btn btn-danger w-100">
+                              <i class="ti ti-brand-google text-white"></i> Sign in with Google
+                            </a>
+                          </div>
+
+                         @* <div class="mb-6 mt-2">
                             <div class="text-center">
-                                <a href="/api/auth/sso" role="button" class="btn btn-danger w-100"><i class="ti ti-brand-google text-white"></i> Sign In</a>
+                              <a href="/transcripts" role="button" class="btn btn-outline-primary w-100">
+                                <i class="ti ti-book text-white"></i> Transcript Application
+                              </a>
                             </div>
-                          </div>
-                          <div class="mb-6 mt-2">
-                            <div class="text-center">
-                                <a href="/transcripts" role="button" class="btn btn-primary w-100"><i class="ti ti-book text-white"></i> Transcript Application</a>
-                            </div>
-                          </div>
+                          </div> *@
                         </form>
+
                       </div>
                     </div>
                 </div>
@@ -93,6 +109,41 @@
 
   <!-- Bootstrap js-->
   <script src="../assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+
+
+
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const data = {
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value
+    };
+
+    try {
+        const response = await fetch("/api/auth/sign-in", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            window.location.href = result.redirectUrl; // Use the redirect from the server
+        } else {
+            const error = await response.text();
+            alert("Login failed: " + error);
+        }
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+});
+</script>
+
 
 </body>
 

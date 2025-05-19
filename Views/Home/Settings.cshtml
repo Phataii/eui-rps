@@ -29,9 +29,7 @@
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <a href="admin/managegrades" class="btn btn-warning w-100">
-                            Manage Grades
-                        </a>
+                        <button id="generatePasswords" class="btn btn-warning">Generate Passwords for All Users</button>
                     </div>
 
                     <div class="col-md-4 mb-3">
@@ -75,3 +73,16 @@
         </main>
     </div>
 </div>
+<script>
+    document.getElementById("generatePasswords").addEventListener("click", function () {
+        fetch("/api/auth/generate-temp-passwords", {
+            method: "POST"
+        }).then(response => {
+            if (response.ok) {
+                alert("Temporary passwords generated and sent successfully.");
+            } else {
+                alert("Something went wrong!");
+            }
+        });
+    });
+</script>

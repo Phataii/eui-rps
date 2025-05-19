@@ -11,42 +11,14 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 DotNetEnv.Env.Load();
 
-// Database Configuration
+// -------------------- Database Configuration --------------------
 var connectionString = configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-// Identity Configuration
-builder.Services.AddDefaultIdentity<IdentityUser>(options => 
-    options.SignIn.RequireConfirmedAccount = true)
-    .AddEntityFrameworkStores<ApplicationDbContext>();
-
-// Authentication & Authorization
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.AccessDeniedPath = "/Auth/AccessDenied";
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = "EUI_RPS",
-            ValidateAudience = true,
-            ValidAudience = "https://result.edouniversity.edu.ng",
-            ValidateLifetime = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("0$H1OM#0L3LargerKeyWithEnoughLengthToPassValidation12345"))
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// Session Configuration
+// -------------------- Session Configuration --------------------
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -54,7 +26,19 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// Dependency Injection
+// -------------------- Authentication & Authorization --------------------
+builder.Services.AddAuthentication("Cookies")
+    .AddCookie("Cookies", options =>
+    {
+        options.LoginPath = "/login";         // Path to login page
+        options.LogoutPath = "/api/auth/logout";       // Path to logout endpoint
+        options.ExpireTimeSpan = TimeSpan.FromHours(1);
+        options.SlidingExpiration = true;
+    });
+
+builder.Services.AddAuthorization();
+
+// -------------------- Dependency Injection --------------------
 builder.Services.AddScoped<UserHelper>();
 builder.Services.AddScoped<GradeService>();
 builder.Services.AddScoped<ResultService>();
@@ -63,16 +47,15 @@ builder.Services.AddScoped<GeneralService>();
 builder.Services.AddScoped<ActivityTrackerService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 
-
-// Controllers & Views
+// -------------------- MVC & HTTP --------------------
 builder.Services.AddControllersWithViews();
-builder.Services.AddSession(); 
+builder.Services.AddSession(); // Keep this
 builder.Services.AddRazorPages();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
-// Middleware Configuration
+// -------------------- Middleware --------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -85,14 +68,17 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseSession();
+
+app.UseSession();          // Session must come before routing if needed in controller
 app.UseRouting();
-app.UseAuthentication();
+
+app.UseAuthentication();   // Authentication before authorization
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
 app.MapRazorPages();
 
 app.Run();

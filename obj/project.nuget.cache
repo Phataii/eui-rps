@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "E02iyRlMf9Kk4cT3OhDUeq/EHc22vciPtGasg+guGOW/yV7RKAYlR2IU5drNUtLE4cz5X+YqZywXXj/zzMyMuw==",
+  "dgSpecHash": "6gGqRsHw2RL8NqsMZnG7BmGZlJBvsz/y0kpOgB8PO/+lqzYenXhDl6U3fqgMXVGnTQNan+l4u+uhd6Ln7kY+DA==",
   "success": true,
   "projectFilePath": "/Users/home/rps/rps.csproj",
   "expectedPackageFiles": [
+    "/Users/home/.nuget/packages/bcrypt.net-next/4.0.3/bcrypt.net-next.4.0.3.nupkg.sha512",
     "/Users/home/.nuget/packages/bouncycastle.cryptography/2.5.1/bouncycastle.cryptography.2.5.1.nupkg.sha512",
     "/Users/home/.nuget/packages/csvhelper/33.0.1/csvhelper.33.0.1.nupkg.sha512",
     "/Users/home/.nuget/packages/dotnetenv/3.1.1/dotnetenv.3.1.1.nupkg.sha512",

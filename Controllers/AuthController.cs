@@ -11,6 +11,7 @@ using rps.Models;
 using Microsoft.AspNetCore.Session;
 using Microsoft.Extensions.Caching.Memory;
 using rps.Services;
+using BCrypt.Net;
 
 namespace rps.Controllers
 {
@@ -85,7 +86,7 @@ namespace rps.Controllers
         [HttpPost("add-user-to-role")]
         public async Task<IActionResult> AddUserToRole([FromBody] UserRoleDto userRole)
         {
-            
+
             var UR = new UserRole
             {
                 RoleId = userRole.role,
@@ -96,7 +97,7 @@ namespace rps.Controllers
             await _context.SaveChangesAsync();
             return Ok(UR);
         }
-        
+
         [HttpPost("edit-user-role")]
         public async Task<IActionResult> UpdateRole([FromBody] EditUserRoleDto model)
         {
@@ -133,15 +134,15 @@ namespace rps.Controllers
                 $"&redirect_uri={redirectUri}" +
                 $"&response_type=code" +
                 $"&scope={scope}";
-                // $"&state={state}";
+            // $"&state={state}";
 
             return Redirect(googleLoginUrl);
         }
 
 
         [HttpGet("signin-google")]
-        public async Task<IActionResult> Google(string code)
-        {   
+        public async Task<IActionResult> Google([FromQuery] string code)
+        {
             // var savedState = HttpContext.Session.GetString("oauth_state");
 
             // if (state != savedState || string.IsNullOrEmpty(state))
@@ -236,68 +237,99 @@ namespace rps.Controllers
                 return Redirect("/dashboard");
             }
         }
-        
+
 
         ////////// HAD TO CREATE A MANUAL LOGIN CAUSE OF THE SSO ISSUE
         /// 
         /// 
-        /// [HttpPost]
-        // public async Task<IActionResult> Login(string email, string password)
-        // {
-        //     if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-        //     {
-        //         return BadRequest("Email and password are required.");
-        //     }
 
-        //     // Step 1: Find the user by email
-        //     var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-        //     if (user == null)
-        //     {
-        //         return Unauthorized("Invalid email or password.");
-        //     }
+        [HttpPost("generate-temp-passwords")]
+        public async Task<IActionResult> GeneratePasswordsForAllUsers()
+        {
+            var users = await _context.Users.ToListAsync();
 
-        //     // Step 2: Validate password (assuming it's hashed)
-        //     var passwordHasher = new PasswordHasher<User>();
-        //     var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+            foreach (var user in users)
+            {
+                // Step 1: Generate a random 6-character alphanumeric string
+                string tempPassword = GenerateRandomPassword(6);
 
-        //     if (result != PasswordVerificationResult.Success)
-        //     {
-        //         return Unauthorized("Invalid email or password.");
-        //     }
+                // Step 2: Hash it
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(tempPassword);
 
-        //     // Step 3: Generate JWT token
-        //     var jwtHelper = new JwtHelper();
-        //     var token = jwtHelper.GenerateJwtToken(user);
+                // Step 3: Store hashed password (example field name: TempPassword or Password)
+                user.PasswordHash = hashedPassword;
+                user.Code = tempPassword;
 
-        //     // Step 4: Get roles
-        //     var userRoles = await _context.UserRoles
-        //         .Where(ur => ur.UserId == user.Id)
-        //         .Select(ur => ur.RoleName.RoleName) // Adjust this based on your navigation model
-        //         .ToListAsync();
+                // Step 4: Send original password to user's email
+                // string subject = "Your Temporary Login Password";
+                // string body = $"Hello {user.FullName},\n\nYour temporary password is: {tempPassword}\nPlease log in and change it immediately.";
 
-        //     // Step 5: Set cookies
-        //     Response.Cookies.Append("jwt", token, new CookieOptions
-        //     {
-        //         HttpOnly = true,
-        //         Secure = true,
-        //         SameSite = SameSiteMode.Lax,
-        //         Expires = DateTime.UtcNow.AddHours(1)
-        //     });
+                // await _emailService.SendEmailAsync(user.Email, subject, body);
+            }
 
-        //     if (userRoles.Any())
-        //     {
-        //         var rolesString = string.Join(",", userRoles);
-        //         Response.Cookies.Append("UserRole", rolesString, new CookieOptions
-        //         {
-        //             HttpOnly = true,
-        //             Secure = true,
-        //             SameSite = SameSiteMode.Lax,
-        //             Expires = DateTime.UtcNow.AddHours(1)
-        //         });
-        //     }
+            await _context.SaveChangesAsync();
+            return Ok("Passwords generated and emailed.");
+        }
 
-        //     return Redirect("/dashboard");
-        // }
+
+        [HttpPost("sign-in")]
+        public async Task<IActionResult> Login([FromBody] Login loginData)
+        {
+            Console.WriteLine("????????"+loginData.Email);
+            if (string.IsNullOrEmpty(loginData.Email) || string.IsNullOrEmpty(loginData.Password))
+            {
+                return BadRequest("Email and password are required.");
+            }
+
+            // Step 1: Find the user by email
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginData.Email);
+            if (user == null)
+            {
+                return Unauthorized("Invalid email or password.");
+            }
+
+            // Step 2: Validate password (assuming it's hashed)
+            // var passwordHasher = new Microsoft.AspNetCore.Identity.PasswordHasher<User>();
+            bool isValid = BCrypt.Net.BCrypt.Verify(loginData.Password, user.PasswordHash);
+
+            if (!isValid)
+            {
+                return Unauthorized("Invalid email or password.");
+            }
+
+            // Step 3: Generate JWT token
+            var jwtHelper = new JwtHelper();
+            var token = jwtHelper.GenerateJwtToken(user);
+
+            // Step 4: Get roles
+            var userRoles = await _context.UserRoles
+                .Where(ur => ur.UserId == user.Id)
+                .Select(ur => ur.RoleName.RoleName) // Adjust this based on your navigation model
+                .ToListAsync();
+
+            // Step 5: Set cookies
+            Response.Cookies.Append("jwt", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddHours(1)
+            });
+
+            if (userRoles.Any())
+            {
+                var rolesString = string.Join(",", userRoles);
+                Response.Cookies.Append("UserRole", rolesString, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTime.UtcNow.AddHours(1)
+                });
+            }
+
+            return Ok(new { redirectUrl = "/dashboard" });
+        }
 
         /// <summary>
         /// ////
@@ -341,7 +373,7 @@ namespace rps.Controllers
             {
                 return Conflict("There is already an adviser for this level, try to edit.");
             }
-            
+
             var adviser = new LevelAdviser
             {
                 StaffId = r.name,
@@ -422,6 +454,15 @@ namespace rps.Controllers
             // Redirect to login or home page
             return Redirect("/");
         }
+        
+        private string GenerateRandomPassword(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            var random = new Random();
+            return new string(Enumerable.Repeat(chars, length)
+                .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
 }   
     public class UserCreateDto
     {
@@ -449,6 +490,13 @@ namespace rps.Controllers
         public string role { get; set; }
     }
     
+    public class Login
+    {
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+
+
     // DTOs for deserialization
     public class GoogleTokenResponse
     {
