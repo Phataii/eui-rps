@@ -104,7 +104,7 @@ public class CoursesAllocated
         public string? CourseCode { get; set; }
         public string? CourseTitle { get; set; }
         public int? CreditUnit { get; set; }
-        public double Total { get; set; } // Assuming Total is a decimal
+        public double? Total { get; set; } // Assuming Total is a decimal
         public string? GradeName { get; set; }
         public int GradePoint { get; set; }
     }

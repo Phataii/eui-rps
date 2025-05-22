@@ -16,9 +16,9 @@ namespace rps.Models
         public Session Sessions { get; set;} // e.g., 10 id from ais
         public int Semester { get; set; } // 1 or 2
         public int LevelId { get; set; }
-        public double CA { get; set; }
-        public double Exam { get; set; }
-        public double Total { get; set; }
+        public double? CA { get; set; }
+        public double? Exam { get; set; }
+        public double? Total { get; set; }
         public string? Grade { get; set; }
         public double Upgrade { get; set; }
         public string? UploadedBy { get; set; }

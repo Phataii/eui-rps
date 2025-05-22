@@ -30,9 +30,32 @@ namespace rps.Services
             public int Count { get; set; }
         }
 
+        private double? ParseScore(string scoreString)
+        {
+            if (string.IsNullOrWhiteSpace(scoreString))
+            {
+                return null;
+            }
+
+            // Handle "ABS" and "NR" explicitly
+            if (scoreString.Equals("ABS", StringComparison.OrdinalIgnoreCase) ||
+                scoreString.Equals("NR", StringComparison.OrdinalIgnoreCase))
+            {
+                return null; // Indicates absence or not recorded, not a numeric score
+            }
+
+            // Attempt to parse as a double
+            if (double.TryParse(scoreString, NumberStyles.Any, CultureInfo.InvariantCulture, out double score))
+            {
+                return score;
+            }
+
+            // If it's not "ABS", "NR", or a valid number, return null
+            return null;
+        }
         public async Task<UploadResultResponse> UploadResultFromCsvAsync(IFormFile file, string courseId, int sessionId, int semesterId, int levelId, string uploader, string userId)
         {
-           try
+            try
             {
                 // FETCH DEPARTMENTS FROM API
                 string apiUrl = $"https://edouniversity.edu.ng/api/v1/departmentsapi";
@@ -66,23 +89,56 @@ namespace rps.Services
 
                     var results = records.Select(record =>
                     {
-                        double totalScore = record.CA + record.Exam;
+                        // Parse CA and Exam scores using the helper method
+                        double? caScore = ParseScore(record.CA);
+                        double? examScore = ParseScore(record.Exam);
 
-                        // Find DepartmentId
-                        var matchedDepartmentId = departmentDict.TryGetValue(record.Department.ToLower(), out var deptId) ? deptId : 0;
+                        double? totalScore = null;
+                        string gradeName = "N/A";
+                        bool isCO = false;
 
-                        // Fetch grade scale for this student's department
-                        var departmentGrades = allGrades.Where(g => g.DepartmentId == matchedDepartmentId).ToList();
+                        // Determine if the student was absent or not recorded
+                        bool isAbsent = record.CA.Equals("ABS", StringComparison.OrdinalIgnoreCase) || record.Exam.Equals("ABS", StringComparison.OrdinalIgnoreCase);
+                        bool isNotRecorded = record.CA.Equals("NR", StringComparison.OrdinalIgnoreCase) || record.Exam.Equals("NR", StringComparison.OrdinalIgnoreCase);
 
-                        // Determine grade
-                        var grade = departmentGrades.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
-                        string gradeName = grade?.GradeName ?? "N/A";
+                        if (isAbsent)
+                        {
+                            gradeName = "ABS";
+                            isCO = false; // Not a carryover in this context
+                        }
+                        else if (isNotRecorded)
+                        {
+                            gradeName = "NR";
+                            isCO = false; // Not a carryover in this context
+                        }
+                        else if (caScore.HasValue && examScore.HasValue)
+                        {
+                            // Only calculate total if both CA and Exam are valid numbers
+                            totalScore = caScore.Value + examScore.Value;
+
+                            // Find DepartmentId
+                            var matchedDepartmentId = departmentDict.TryGetValue(record.Department.ToLower(), out var deptId) ? deptId : 0;
+
+                            // Fetch grade scale for this student's department
+                            var departmentGrades = allGrades.Where(g => g.DepartmentId == matchedDepartmentId).ToList();
+
+                            // Determine grade based on total score
+                            var grade = departmentGrades.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
+                            gradeName = grade?.GradeName ?? "N/A";
+                            isCO = gradeName == "F"; // Set IsCO if the grade is 'F'
+                        }
+                        // If caScore or examScore is null (due to invalid number format, not ABS/NR),
+                        // totalScore remains null, gradeName remains "N/A", and isCO remains false.
+
+                        // Find DepartmentId for the current record
+                        var matchedDepartmentIdForRecord = departmentDict.TryGetValue(record.Department.ToLower(), out var recordDeptId) ? recordDeptId : 0;
+
 
                         return new Result
                         {
                             UploadedBy = uploader,
                             LevelId = levelId,
-                            DepartmentId = matchedDepartmentId,
+                            DepartmentId = matchedDepartmentIdForRecord,
                             DepartmentName = record.Department,
                             ResultId = resultId,
                             CourseId = courseId,
@@ -90,8 +146,8 @@ namespace rps.Services
                             Semester = semesterId,
                             StudentId = record.MatNo,
                             StudentName = record.Name,
-                            CA = record.CA,
-                            Exam = record.Exam,
+                            CA = caScore,
+                            Exam = examScore,
                             Total = totalScore,
                             Grade = gradeName,
                             IsCO = gradeName == "F",
@@ -302,7 +358,7 @@ namespace rps.Services
                 // Check if any record's total score will exceed 100 after the update
                 foreach (var record in resultsToUpgrade)
                 {
-                    double newTotal = record.CA + record.Exam + score; // Calculate the new total
+                    double? newTotal = record.CA + record.Exam + score; // Calculate the new total
                     if (newTotal > 100)
                     {
                         return "Updating the score would cause a total score to exceed 100 for one or more records.";
@@ -331,7 +387,7 @@ namespace rps.Services
                         // Update the grades based on the new scores
                         foreach (var record in resultsToUpgrade)
                         {
-                            double totalScore = record.CA + record.Exam + record.Upgrade; // Recalculate total score
+                            double? totalScore = record.CA + record.Exam + record.Upgrade; // Recalculate total score
 
                             // Determine the grade
                             var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
@@ -378,7 +434,7 @@ namespace rps.Services
                     return "Result not found.";
                 }
 
-                double newTotal = resultToUpgrade.CA + resultToUpgrade.Exam + score;
+                double? newTotal = resultToUpgrade.CA + resultToUpgrade.Exam + score;
                 if (newTotal > 100)
                 {
                     return "Updating the score would cause the total score to exceed 100.";
@@ -395,7 +451,7 @@ namespace rps.Services
                             .Where(g => g.Type == "ug" && g.DepartmentId == departmentId && g.Approved)
                             .ToListAsync();
 
-                        double totalScore = resultToUpgrade.CA + resultToUpgrade.Exam + resultToUpgrade.Upgrade;
+                        double? totalScore = resultToUpgrade.CA + resultToUpgrade.Exam + resultToUpgrade.Upgrade;
                         var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
                         resultToUpgrade.Total = totalScore;
                         resultToUpgrade.Grade = grade?.GradeName ?? "N/A";
@@ -473,7 +529,7 @@ namespace rps.Services
 
                     foreach (var result in resultGrades)
                     {
-                        double totalScore = result.CA + result.Exam + result.Upgrade;
+                        double? totalScore = result.CA + result.Exam + result.Upgrade;
                         var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
 
                         result.Total = totalScore;
@@ -500,8 +556,8 @@ namespace rps.Services
         public string? MatNo { get; set; }
         public string? Name { get; set; }
         public string? Department { get; set; }
-        public double CA { get; set; }
-        public double Exam { get; set; }
+        public string? CA { get; set; }
+        public string? Exam { get; set; }
     }
 
     public class ResultUploadResponse

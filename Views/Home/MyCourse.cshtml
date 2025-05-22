@@ -65,7 +65,7 @@
                                     }
                                     @{
                                         int totalNoStudents = Model.Count();
-                                        double totalScores = Model.Sum(result => result.Total);
+                                        double? totalScores = Model.Sum(result => result.Total);
                                         double averageScore = totalStudents > 0 ? (double)totalScores / totalStudents : 0;
                                     }
                                     <div class="app-scroll table-responsive app-datatable-default">

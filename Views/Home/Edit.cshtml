@@ -199,7 +199,20 @@
                                                             <td>@result.Upgrade</td>
                                                         }
 
-                                                        <td>@result.Exam</td>
+                                                       <td>
+                                                            @if (result.Grade.Equals("ABS", StringComparison.OrdinalIgnoreCase))
+                                                            {
+                                                                <span>ABS</span>
+                                                            }
+                                                            else if (result.Grade.Equals("NR", StringComparison.OrdinalIgnoreCase))
+                                                            {
+                                                                <span>NR</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                @result.Exam?.ToString() // Display the parsed numeric value if available
+                                                            }
+                                                        </td>
                                                         <td>@result.Total</td>
                                                         <td>@result.Grade</td>
                                                         <td style="color: @(result.IsCO ? "red" : "black")">
