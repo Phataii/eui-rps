@@ -53,10 +53,10 @@
                                     <label for="name" class="form-label">Staff Name</label>
                                     <select class="form-select" id="name" name="name" required>
                                     <option selected disabled value="">Choose...</option>
-                                    @foreach (var staff in Model.Staff.Where(x => x.DepartmentId == @ViewBag.dpt))
+                                    @foreach (var staff in Model.Staff.Where(x => x.departmentId == @ViewBag.dpt))
                                     {
-                                        <option value="@staff.SchoolEmail">
-                                            @staff.Fullname
+                                        <option value="@staff.schoolEmail">
+                                            @staff.fullname
                                         </option>
                                     }
                                 </select>

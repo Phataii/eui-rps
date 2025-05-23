@@ -14,11 +14,11 @@ namespace rps.Models
     public class Staff
     {
         public int Id { get; set;}
-        public string? Fullname { get; set; }
-        public string? SchoolEmail { get; set; }
-        public int? DepartmentId { get; set; }
-        public string? DepartmentName { get; set; }
-        public int FacultyId { get; set; }
+        public string? fullname { get; set; }
+        public string? schoolEmail { get; set; }
+        public int? departmentId { get; set; }
+        public string? departmentName { get; set; }
+        public int? facultyId { get; set; }
     }
     public class UserRolesViewModel
     {

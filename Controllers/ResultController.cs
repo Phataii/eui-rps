@@ -76,7 +76,7 @@ namespace rps.Controllers
                     int studentsCount = result.Count;
 
                     // Save faculty batch
-                    await _resultService.SaveFacultyBatch(semesterId, sessionId, departmentId, departmentName, facultyId);
+                    // await _resultService.SaveFacultyBatch(semesterId, sessionId, departmentId, departmentName, facultyId);
 
                     // grab logs
                     await _activityTrackerService.LogActivity(loggedInUser.Id, loggedInUser.Email, $"uploaded result for {courseId}, {sessionId}, {loggedInUser.DepartmentName}");
@@ -132,7 +132,7 @@ namespace rps.Controllers
                 var uploader = loggedInUser.Email;
                 var result = await _resultService.AddSingleResult(
                     studentId, studentName, courseId,
-                    session, semester, ca, exam, levelId, uploader, dptN, loggedInUser.DepartmentId, reference);
+                    session, semester, ca, exam, levelId, uploader, dptN, (int)loggedInUser.DepartmentId, reference);
 
                 if (result.Success)
                 {
@@ -244,7 +244,7 @@ namespace rps.Controllers
                     return Redirect("/");
                 }
 
-                string result = await _resultService.UpgradeBulkResult(course, session, score, loggedInUser.DepartmentId);
+                string result = await _resultService.UpgradeBulkResult(course, session, score, (int)loggedInUser.DepartmentId);
 
                 //getting the fistname of the lecturer just for the sake of the email template
                 string firstName = loggedInUser.Email.Split('@')[0].Split('.')[0];
@@ -292,7 +292,7 @@ namespace rps.Controllers
                     return Redirect("/");
                 }
 
-                int dptId = loggedInUser.DepartmentId;
+                int dptId = (int)loggedInUser.DepartmentId;
                 string result = await _resultService.UpgradeSingleResult(id, studentId, score, departmentId);
 
                 //getting the fistname of the lecturer just for the sake of the email template

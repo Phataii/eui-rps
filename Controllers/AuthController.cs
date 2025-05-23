@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Session;
 using Microsoft.Extensions.Caching.Memory;
 using rps.Services;
 using BCrypt.Net;
+using Humanizer;
 
 namespace rps.Controllers
 {
@@ -24,13 +25,15 @@ namespace rps.Controllers
         private readonly IEmailService _emailService;
         private readonly UserHelper _userHelper;
         private readonly ILogger<AuthController> _logger;
-        public AuthController(ApplicationDbContext context, IMemoryCache cache, IEmailService emailService, UserHelper userHelper, ILogger<AuthController> logger)
+        private readonly IHttpClientFactory _httpClientFactory;
+        public AuthController(ApplicationDbContext context, IMemoryCache cache, IEmailService emailService, UserHelper userHelper, IHttpClientFactory httpClientFactory, ILogger<AuthController> logger)
         {
             _context = context;
             _cache = cache;
             _emailService = emailService;
             _userHelper = userHelper;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpPost("add-user")]
@@ -143,100 +146,107 @@ namespace rps.Controllers
         [HttpGet("signin-google")]
         public async Task<IActionResult> Google([FromQuery] string code)
         {
-            // var savedState = HttpContext.Session.GetString("oauth_state");
-
-            // if (state != savedState || string.IsNullOrEmpty(state))
-            // {
-            //     return BadRequest("Invalid OAuth state. Possible CSRF attack.");
-            // }
-
-            //  // ✅ Clean up after verifying
-            // HttpContext.Session.Remove("oauth_state");
-
             if (string.IsNullOrEmpty(code))
-            {
                 return BadRequest("Authorization code not provided.");
-            }
 
             var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
             var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
             var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
 
-            using (var httpClient = new HttpClient())
+            using var httpClient = new HttpClient();
+
+            // Step 1: Exchange authorization code for access token
+            var tokenRequest = new FormUrlEncodedContent(new[]
             {
-                // Step 1: Exchange authorization code for tokens
-                var tokenRequest = new FormUrlEncodedContent(new[]
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("redirect_uri", redirectUri),
+                new KeyValuePair<string, string>("grant_type", "authorization_code")
+            });
+
+            var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
+            if (!tokenResponse.IsSuccessStatusCode)
+                return BadRequest("Failed to retrieve access token from Google.");
+
+            var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
+            var tokenResult = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenContent);
+
+            // Step 2: Retrieve user info from Google
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenResult.AccessToken);
+            var userInfoResponse = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+
+            if (!userInfoResponse.IsSuccessStatusCode)
+                return BadRequest("Failed to retrieve user information from Google.");
+
+            var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
+            var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(userInfoContent);
+
+            // Step 3: Look for user in your local database
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userInfo.Email);
+            
+            // Step 4: If user not found, try to match from staff API
+            if (user == null)
+            {
+                string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
+                var staffList = await FetchApiData<List<Staff>>("https://edouniversity.edu.ng/api/v1/staffapi/all", apiKey);
+
+                var matchingStaff = staffList?.FirstOrDefault(s =>
+                    s.schoolEmail.Equals(userInfo.Email, StringComparison.OrdinalIgnoreCase));
+                Console.Write("?????"+ matchingStaff?.facultyId);
+                if (matchingStaff != null)
                 {
-                    new KeyValuePair<string, string>("code", code),
-                    new KeyValuePair<string, string>("client_id", clientId),
-                    new KeyValuePair<string, string>("client_secret", clientSecret),
-                    new KeyValuePair<string, string>("redirect_uri", redirectUri),
-                    new KeyValuePair<string, string>("grant_type", "authorization_code")
-                });
-
-                var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
-                if (!tokenResponse.IsSuccessStatusCode)
-                {
-                    return BadRequest($"Error retrieving access token. {tokenRequest}");
-                }
-
-                var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
-                var tokenResult = JsonSerializer.Deserialize<GoogleTokenResponse>(tokenContent);
-
-                // Step 2: Fetch user info from Google API
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenResult.AccessToken);
-                var userInfoResponse = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
-
-                if (!userInfoResponse.IsSuccessStatusCode)
-                {
-                    return BadRequest("Error retrieving user info.");
-                }
-
-                var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
-                var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(userInfoContent);
-
-                // Step 3: Check if user exists in DB
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userInfo.Email);
-                if (user == null)
-                {
-                    return Unauthorized($"The email '{userInfo.Email}' could be not found on the result processing system.");
-                }
-
-                // Step 4: Generate JWT token
-                var jwtHelper = new JwtHelper();
-                var token = jwtHelper.GenerateJwtToken(user);
-
-                //Check the role of the authenticated user
-                // Check the role of the authenticated user
-                var userRoles = await _context.UserRoles
-                    .Where(ur => ur.UserId == user.Id)
-                    .Select(ur => ur.RoleName.RoleName) // Assuming there's a navigation property to Role
-                    .ToListAsync();
-                // 5. Set JWT token in an HttpOnly cookie
-                Response.Cookies.Append("jwt", token, new CookieOptions
-                {
-                    HttpOnly = true,    // Prevents access to cookie from JavaScript
-                    Secure = true,      // Ensures the cookie is only sent over HTTPS
-                    SameSite = SameSiteMode.Lax,  // Mitigates CSRF attacks
-                    Expires = DateTime.UtcNow.AddHours(1) // Set expiration as needed
-                });
-
-                // 6. Set UserRole in a separate cookie
-                if (userRoles.Any()) // Ensure the list is not empty
-                {
-                    var rolesString = string.Join(",", userRoles); // Convert list to a comma-separated string
-
-                    Response.Cookies.Append("UserRole", rolesString, new CookieOptions
+                    user = new User
                     {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.Lax,
-                        Expires = DateTime.UtcNow.AddHours(1)
-                    });
+                        Email = matchingStaff.schoolEmail,
+                        Name = matchingStaff.fullname,
+                        DepartmentId = (int)matchingStaff.departmentId,
+                        Faculty = matchingStaff.facultyId,
+                        DepartmentName = matchingStaff.departmentName,
+                        IsActive = true
+                        // Optionally: assign role, default password hash, CreatedAt, etc.
+                    };
+
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
                 }
-                return Redirect("/dashboard");
+                else
+                {
+                    return Unauthorized($"The email '{userInfo.Email}' was not found in either the system or the staff database.");
+                }
             }
+
+            // Step 5: Generate JWT token
+            var jwtHelper = new JwtHelper();
+            var token = jwtHelper.GenerateJwtToken(user);
+
+            // Step 6: Retrieve user roles
+            var userRoles = await _context.UserRoles
+                .Where(ur => ur.UserId == user.Id)
+                .Select(ur => ur.RoleName.RoleName) // Assumes navigation property RoleName
+                .ToListAsync();
+
+            // Step 7: Set cookies
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTime.UtcNow.AddHours(1)
+            };
+
+            Response.Cookies.Append("jwt", token, cookieOptions);
+
+            if (userRoles.Any())
+            {
+                var rolesString = string.Join(",", userRoles);
+                Response.Cookies.Append("UserRole", rolesString, cookieOptions);
+            }
+
+            // Step 8: Redirect user to the dashboard
+            return Redirect("/dashboard");
         }
+
 
 
         ////////// HAD TO CREATE A MANUAL LOGIN CAUSE OF THE SSO ISSUE
@@ -275,7 +285,7 @@ namespace rps.Controllers
         [HttpPost("sign-in")]
         public async Task<IActionResult> Login([FromBody] Login loginData)
         {
-            Console.WriteLine("????????"+loginData.Email);
+            Console.WriteLine("????????" + loginData.Email);
             if (string.IsNullOrEmpty(loginData.Email) || string.IsNullOrEmpty(loginData.Password))
             {
                 return BadRequest("Email and password are required.");
@@ -378,7 +388,7 @@ namespace rps.Controllers
             {
                 StaffId = r.name,
                 Level = r.level,
-                DepartmentId = loggedInUser.DepartmentId,
+                DepartmentId = (int)loggedInUser.DepartmentId,
                 DepartmentName = loggedInUser.DepartmentName,
                 IsActive = true
             };
@@ -454,13 +464,23 @@ namespace rps.Controllers
             // Redirect to login or home page
             return Redirect("/");
         }
-        
+
         private string GenerateRandomPassword(int length)
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             var random = new Random();
             return new string(Enumerable.Repeat(chars, length)
                 .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        private async Task<T> FetchApiData<T>(string apiUrl, string apiKey)
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+            var response = await client.GetAsync(apiUrl);
+            response.EnsureSuccessStatusCode(); // Throw on non-success
+            var content = await response.Content.ReadAsStringAsync();
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(content);
         }
 
 }   

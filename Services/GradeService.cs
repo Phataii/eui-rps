@@ -251,7 +251,10 @@ namespace rps.Services
             }
         }
 
-
+        internal async Task<object?> UploadRemarkFromCsvAsync(IFormFile file, int? departmentId)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     public class GradeCsvRecord
