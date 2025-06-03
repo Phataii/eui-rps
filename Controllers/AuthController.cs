@@ -285,7 +285,6 @@ namespace rps.Controllers
         [HttpPost("sign-in")]
         public async Task<IActionResult> Login([FromBody] Login loginData)
         {
-            Console.WriteLine("????????" + loginData.Email);
             if (string.IsNullOrEmpty(loginData.Email) || string.IsNullOrEmpty(loginData.Password))
             {
                 return BadRequest("Email and password are required.");

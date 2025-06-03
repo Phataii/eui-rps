@@ -1,6 +1,11 @@
 namespace rps.Models
 {
-   public class Course
+   public class CourseAllocation
+    {
+        public int Id { get; set; }
+        public Course? Course { get; set; }
+    }
+       public class Course
     {
         public int Id { get; set; }
         public string? Code { get; set; }
@@ -13,7 +18,7 @@ namespace rps.Models
 
     public class Staff
     {
-        public int Id { get; set;}
+        public int Id { get; set; }
         public string? fullname { get; set; }
         public string? schoolEmail { get; set; }
         public int? departmentId { get; set; }
@@ -35,26 +40,33 @@ namespace rps.Models
     public class PreviewResults
     {
         public List<DepartmentBatch>? DepartmentBatches { get; set; }
-        public List<Course>? Courses{ get; set; }
+        public List<CourseAllocation>? Courses{ get; set; }
         public List<Session>? Sessions{ get; set; }
     }
-public class CoursesAllocated
-{
-    public int CourseAllocationId { get; set; }
-    public int CourseId { get; set; } // Foreign key to Courses
-    public int DepartmentId { get; set; }
-    // Add other fields as needed
-}
+    public class CoursesAllocated
+    {
+        public int CourseAllocationId { get; set; }
+        public int CourseId { get; set; } // Foreign key to Courses
+        public int DepartmentId { get; set; }
+        // Add other fields as needed
+    }
+    
+    public class MyCoursePreview
+    {
+        public List<Result> Result { get; set; }
+        public List<CourseAllocation>? Course { get; set; }
+        
+    }
 
     public class CourseAllocationViewModel
-{
-    public int CourseAllocationId { get; set; }
-    public int CourseId { get; set; }
-    public string Code { get; set; }
-    public string Name { get; set; }
-    public int DepartmentId { get; set; }
-    // Add other fields as needed
-}
+    {
+        public int CourseAllocationId { get; set; }
+        public int CourseId { get; set; }
+        public string Code { get; set; }
+        public string Name { get; set; }
+        public int DepartmentId { get; set; }
+        // Add other fields as needed
+    }
 
     public class Departments
     {

@@ -35,11 +35,11 @@ namespace rps.Controllers
             _logger = logger;
             _context = context;
             _userHelper = userHelper;
-             _cache = cache;
+            _cache = cache;
         }
         public async Task<IActionResult> Index()
         {
-        
+
             return View();
         }
 
@@ -58,13 +58,13 @@ namespace rps.Controllers
             }
 
             var pendingTranscripts = await _context.TranscriptApplications.Where(x => x.Status == TranscriptStatus.Pending).ToListAsync();
-            ViewData["transcripts"]= pendingTranscripts.Count();
+            ViewData["transcripts"] = pendingTranscripts.Count();
 
             var sessions = await _context.Sessions.OrderByDescending(s => s.Id).ToListAsync();
             var ugGrades = await _context.Grades.Where(x => x.Type == "ug" && x.DepartmentId == loggedInUser.DepartmentId).ToListAsync();
             var pgOrMbbs = await _context.Grades.Where(x => x.Type == "pg").ToListAsync();
             var remarks = await _context.Remarks.Where(x => x.DepartmentId == loggedInUser.DepartmentId).ToListAsync();
-            var viewModel =  new Dashboard
+            var viewModel = new Dashboard
             {
                 Sessions = sessions,
                 UgGrades = ugGrades,
@@ -84,7 +84,7 @@ namespace rps.Controllers
             }
             // API URL and API Key
             // string apiUrl = $"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.DepartmentId}";
-            string apiUrl = $"https://edouniversity.edu.ng/api/v1/coursesapi?departmentId={loggedInUser.DepartmentId}";
+            string apiUrl = $"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.AISID}";
             string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
 
             // Initialize an HTTP Client
@@ -103,10 +103,10 @@ namespace rps.Controllers
 
                 // Read response content
                 var content = await response.Content.ReadAsStringAsync();
-                
+
                 //Deserialize JSON content if necessary (optional);
-                var courses = JsonConvert.DeserializeObject<List<Course>>(content);
-                
+                var courses = JsonConvert.DeserializeObject<List<CourseAllocation>>(content);
+
                 var dptBatches = await _context.DepartmentBatches.Where(x => x.User == loggedInUser.Id).ToListAsync();
                 var sessions = await _context.Sessions.OrderByDescending(s => s.Id).ToListAsync();
                 var model = new PreviewResults
@@ -125,7 +125,7 @@ namespace rps.Controllers
                 return View("Error"); // Redirect to an error view if needed
             }
         }
-       
+
         [Route("user-roles")]
         public async Task<IActionResult> UserRoles()
         {
@@ -193,7 +193,7 @@ namespace rps.Controllers
                 ModelState.AddModelError(string.Empty, $"An error occurred: {ex.Message}");
                 return View("Error");
             }
-            
+
             // Fetch results & grades in bulk for better performance
             var results = await _context.Results
                 .Where(r => r.DepartmentName == reference && r.Session == session && r.Semester == semester)
@@ -239,33 +239,61 @@ namespace rps.Controllers
             }).ToList();
             return View(studentResults);
         }
-        
+
         [Route("mycourse-preview")]
-         public async Task<IActionResult> MyCourse([FromQuery] string reference, [FromQuery] int session)
+        public async Task<IActionResult> MyCourse([FromQuery] string reference, [FromQuery] int session)
         {
             var loggedInUser = await _userHelper.GetLoggedInUser(Request);
             if (loggedInUser == null)
             {
                 return Redirect("/");
             }
-            
-             var results = await _context.Results.Where(x => x.ResultId == reference).ToListAsync();
-             if (results.Any()){
+
+            var results = await _context.Results.Where(x => x.ResultId == reference).ToListAsync();
+            if (results.Any())
+            {
                 ViewData["course"] = results.First().CourseId;
                 ViewData["dpt"] = results.First().DepartmentName;
                 ViewData["count"] = results.Count();
                 ViewData["level"] = results.First().LevelId + "00";
-             }
-             var sessionName = await _context.Sessions.Where(x => x.Id == session).Select(x => x.Name).FirstOrDefaultAsync();
-             ViewData["session"] = sessionName;
-             ViewData["lecturer"] = loggedInUser.Name;
+            }
+            var sessionName = await _context.Sessions.Where(x => x.Id == session).Select(x => x.Name).FirstOrDefaultAsync();
+            ViewData["session"] = sessionName;
+            ViewData["lecturer"] = loggedInUser.Name;
+
+
+            string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                _logger.LogError("API Key is missing from environment variables.");
+                return Problem("API Key is missing.", statusCode: 500); // Return a ProblemResult
+            }
+
+            try
+            {
+                // Fetch course details
+                var course = await FetchApiData<List<CourseAllocation>>($"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.AISID}", apiKey);
+                
+                var model = new MyCoursePreview
+                {
+                    Result = results,
+                    Course = course
+                };
+                return View(model);
             
-            return View(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred in the User action.");
+                return RedirectToAction("Error", "Home"); //Or a more specific error page
+            }
+
+           
         }
 
 
         [Route("result-details")]
-        public async Task<IActionResult> ResultDetails([FromQuery] string reference, [FromQuery] string sortby,[FromQuery] int session)
+        public async Task<IActionResult> ResultDetails([FromQuery] string reference, [FromQuery] string sortby, [FromQuery] int session)
         {
             var loggedInUser = await _userHelper.GetLoggedInUser(Request);
             if (loggedInUser == null)
@@ -273,69 +301,71 @@ namespace rps.Controllers
                 return Redirect("/");
             }
 
-                var isDean = await _context.UserRoles
-                    .Where(x => x.UserId == loggedInUser.Id && x.RoleId == "2c370f7a-13fb-4e60-99ed-8140ac52566a")
-                    .Select(x => new { x.RoleId, x.RoleName }) // Ensure RoleName is fetched
-                    .FirstOrDefaultAsync();
-
-                if (isDean != null)
-                {
-                    ViewData["isDean"] = "Yes";
-                }
-                
-                //hide upgrade based on this
-                var res = await _context.DepartmentBatches.Where(x => x.ResultId == reference && x.DepartmentName == sortby && x.Session == session)
-                .Select(x => new 
-                    {
-                        lectuer = x.User,
-                        HODStatus = x.HODStatus,
-                        DeanStatus = x.DeanStatus,
-                        LecturerStatus = x.LecturerStatus,
-                        DepartmentName = x.DepartmentName,
-                        CourseId = x.CourseId
-                    })
+            var isDean = await _context.UserRoles
+                .Where(x => x.UserId == loggedInUser.Id && x.RoleId == "2c370f7a-13fb-4e60-99ed-8140ac52566a")
+                .Select(x => new { x.RoleId, x.RoleName }) // Ensure RoleName is fetched
                 .FirstOrDefaultAsync();
 
-                // check if the loggedIn user is the lecturer and the uploader of the course, if yes, then save and use it to display in the view
-                if (res != null && loggedInUser.Id == res.lectuer){
-                    ViewData["isLecturer"] = "Yes";
-                }
-                var results = await _context.Results.Where(x => x.ResultId == reference  && x.DepartmentName == sortby && x.Session == session).ToListAsync();
-            
-                ViewData["HODStatus"] = res?.HODStatus;
-                ViewData["DeanStatus"] = res?.DeanStatus;
-                ViewData["LecturerStatus"] = res?.LecturerStatus;
-                ViewData["dpt"] = res?.DepartmentName;
-                ViewData["course"] = res?.CourseId;
-                ViewData["session"] = session;
-               
-             return View(results);
-        }
-
-        [Route("edit")]
-        public async Task<IActionResult> Edit([FromQuery] string reference,[FromQuery] string sortby, [FromQuery] int session)
-        {
-            var loggedInUser = await _userHelper.GetLoggedInUser(Request);
-            if (loggedInUser == null)
+            if (isDean != null)
             {
-                return Redirect("/");
+                ViewData["isDean"] = "Yes";
             }
-            
 
+            //hide upgrade based on this
             var res = await _context.DepartmentBatches.Where(x => x.ResultId == reference && x.DepartmentName == sortby && x.Session == session)
-            .Select(x => new 
-                {
-                    lectuer = x.User,
-                    HODStatus = x.HODStatus,
-                    DeanStatus = x.DeanStatus,
-                    LecturerStatus = x.LecturerStatus,
-                    DepartmentName = x.DepartmentName,
-                    CourseId = x.CourseId,
-                })
+            .Select(x => new
+            {
+                lectuer = x.User,
+                HODStatus = x.HODStatus,
+                DeanStatus = x.DeanStatus,
+                LecturerStatus = x.LecturerStatus,
+                DepartmentName = x.DepartmentName,
+                CourseId = x.CourseId
+            })
             .FirstOrDefaultAsync();
 
             // check if the loggedIn user is the lecturer and the uploader of the course, if yes, then save and use it to display in the view
-            if (res != null && loggedInUser.Id == res.lectuer){
+            if (res != null && loggedInUser.Id == res.lectuer)
+            {
+                ViewData["isLecturer"] = "Yes";
+            }
+            var results = await _context.Results.Where(x => x.ResultId == reference && x.DepartmentName == sortby && x.Session == session).ToListAsync();
+
+            ViewData["HODStatus"] = res?.HODStatus;
+            ViewData["DeanStatus"] = res?.DeanStatus;
+            ViewData["LecturerStatus"] = res?.LecturerStatus;
+            ViewData["dpt"] = res?.DepartmentName;
+            ViewData["course"] = res?.CourseId;
+            ViewData["session"] = session;
+
+            return View(results);
+        }
+
+        [Route("edit")]
+        public async Task<IActionResult> Edit([FromQuery] string reference, [FromQuery] string sortby, [FromQuery] int session)
+        {
+            var loggedInUser = await _userHelper.GetLoggedInUser(Request);
+            if (loggedInUser == null)
+            {
+                return Redirect("/");
+            }
+
+
+            var res = await _context.DepartmentBatches.Where(x => x.ResultId == reference && x.DepartmentName == sortby && x.Session == session)
+            .Select(x => new
+            {
+                lectuer = x.User,
+                HODStatus = x.HODStatus,
+                DeanStatus = x.DeanStatus,
+                LecturerStatus = x.LecturerStatus,
+                DepartmentName = x.DepartmentName,
+                CourseId = x.CourseId,
+            })
+            .FirstOrDefaultAsync();
+
+            // check if the loggedIn user is the lecturer and the uploader of the course, if yes, then save and use it to display in the view
+            if (res != null && loggedInUser.Id == res.lectuer)
+            {
                 ViewData["isLecturer"] = "Yes";
             }
             ViewData["HODStatus"] = res?.HODStatus;
@@ -345,7 +375,7 @@ namespace rps.Controllers
             ViewData["course"] = res?.CourseId;
             ViewData["session"] = session;
             ViewData["reference"] = reference;
-            
+
             var results = await _context.Results.Where(x => x.ResultId == reference && x.DepartmentName == sortby && x.Session == session).ToListAsync();
             return View(results);
         }
@@ -403,17 +433,17 @@ namespace rps.Controllers
                 return Redirect("/");
             }
 
-           var isDean = await _context.UserRoles
-                .Where(x => x.UserId == loggedInUser.Id && x.RoleId == "2c370f7a-13fb-4e60-99ed-8140ac52566a")
-                .Select(x => new { x.RoleId, x.RoleName }) // Ensure RoleName is fetched
-                .FirstOrDefaultAsync();
+            var isDean = await _context.UserRoles
+                 .Where(x => x.UserId == loggedInUser.Id && x.RoleId == "2c370f7a-13fb-4e60-99ed-8140ac52566a")
+                 .Select(x => new { x.RoleId, x.RoleName }) // Ensure RoleName is fetched
+                 .FirstOrDefaultAsync();
 
             // Fix scope issue - Declare `code` before the if-else conditions
             string? departmentId;
             if (isDean == null)
             {
                 departmentId = loggedInUser.DepartmentName; // Use logged-in user's department if not a dean
-               
+
             }
             else
             {
@@ -424,12 +454,12 @@ namespace rps.Controllers
                 .Where(x => x.DepartmentName == departmentId)
                 .Include(s => s.Sessions)
                 .ToListAsync();
-                ViewData["DepartmentName"] = reference;
+            ViewData["DepartmentName"] = reference;
             ViewData["dpt"] = loggedInUser.DepartmentId;
             ViewData["code"] = departmentId;
             return View(dptBatches);
         }
-        
+
         [Route("logs")]
         public async Task<IActionResult> Logs()
         {
@@ -493,45 +523,45 @@ namespace rps.Controllers
         [Route("users")]
         public async Task<IActionResult> User()
         {
-        var loggedInUser = await _userHelper.GetLoggedInUser(Request);
-        if (loggedInUser == null)
-        {
-            return Redirect("/"); // Or perhaps a more appropriate action like Challenge(), Forbid(), or a dedicated login page.
-        }
-
-        string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            _logger.LogError("API Key is missing from environment variables.");
-            return Problem("API Key is missing.", statusCode: 500); // Return a ProblemResult
-        }
-
-        try
-        {
-            // Fetch departments
-            var departments = await FetchApiData<List<Departments>>("https://edouniversity.edu.ng/api/v1/departmentsapi", apiKey);
-
-            // Fetch academic staff
-            var academicStaff = await FetchApiData<List<Staff>>("https://edouniversity.edu.ng/api/v1/staffapi/academic", apiKey);
-
-
-            var users = await _context.Users.ToListAsync(); // No need to check for null here, Empty list is fine.
-
-
-            var model = new UsersVM
+            var loggedInUser = await _userHelper.GetLoggedInUser(Request);
+            if (loggedInUser == null)
             {
-                Departments = departments,
-                Staff = academicStaff,
-                Users = users
-            };
-            return View(model);
+                return Redirect("/"); // Or perhaps a more appropriate action like Challenge(), Forbid(), or a dedicated login page.
+            }
+
+            string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                _logger.LogError("API Key is missing from environment variables.");
+                return Problem("API Key is missing.", statusCode: 500); // Return a ProblemResult
+            }
+
+            try
+            {
+                // Fetch departments
+                var departments = await FetchApiData<List<Departments>>("https://edouniversity.edu.ng/api/v1/departmentsapi", apiKey);
+
+                // Fetch academic staff
+                var academicStaff = await FetchApiData<List<Staff>>("https://edouniversity.edu.ng/api/v1/staffapi/academic", apiKey);
+
+
+                var users = await _context.Users.ToListAsync(); // No need to check for null here, Empty list is fine.
+
+
+                var model = new UsersVM
+                {
+                    Departments = departments,
+                    Staff = academicStaff,
+                    Users = users
+                };
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred in the User action.");
+                return RedirectToAction("Error", "Home"); //Or a more specific error page
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An unexpected error occurred in the User action.");
-            return RedirectToAction("Error", "Home"); //Or a more specific error page
-        }
-    }
 
         // TRANSCRIPT
         [Route("transcripts")]
@@ -568,7 +598,7 @@ namespace rps.Controllers
             }
 
             var staff = await _context.LevelAdvisers.FirstOrDefaultAsync(x => x.StaffId == loggedInUser.Id);
-             string apiUrl = $"https://edouniversity.edu.ng/api/v1/coursesapi?departmentId={loggedInUser.DepartmentId}";
+            string apiUrl = $"https://edouniversity.edu.ng/api/v1/coursesapi?departmentId={loggedInUser.DepartmentId}";
             string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
 
             // Initialize an HTTP Client
@@ -597,7 +627,7 @@ namespace rps.Controllers
                 _logger.LogError(ex, "An unexpected error occurred in the User action.");
                 return RedirectToAction("Error", "Home"); //Or a more specific error page
             }
-            
+
         }
 
         [HttpGet("level-advisers")]
@@ -609,7 +639,7 @@ namespace rps.Controllers
                 return Redirect("/");
             }
 
-           string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
+            string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
             if (string.IsNullOrEmpty(apiKey))
             {
                 _logger.LogError("API Key is missing from environment variables.");
@@ -640,10 +670,10 @@ namespace rps.Controllers
                 _logger.LogError(ex, "An unexpected error occurred in the User action.");
                 return RedirectToAction("Error", "Home"); //Or a more specific error page
             }
-            
+
         }
 
-       [HttpGet("transcript/application")]
+        [HttpGet("transcript/application")]
         public async Task<IActionResult> TranscriptApplication(string orderId)
         {
             try
@@ -667,7 +697,7 @@ namespace rps.Controllers
             }
         }
 
-       [HttpGet("application/progress")]
+        [HttpGet("application/progress")]
         public async Task<IActionResult> Progress(int id)
         {
             try
@@ -706,7 +736,7 @@ namespace rps.Controllers
             response.EnsureSuccessStatusCode(); // Throw on non-success
             var content = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<T>(content);
-        }   
+        }
     }
     public class CsvRecord
     {
@@ -715,6 +745,7 @@ namespace rps.Controllers
         public string? Department { get; set; }
         public string CA { get; set; }
         public string Exam { get; set; }
-        
+
     }
+
 }

@@ -51,9 +51,9 @@ namespace rps.Controllers
                 }
                 
                 // Check if the result has been uploaded before.
-                var resultExists = await _context.DepartmentBatches.FirstOrDefaultAsync(c => c.CourseId == courseId && c.Session == sessionId);
+                var resultExists = await _context.DepartmentBatches.FirstOrDefaultAsync(c => c.CourseId == courseId && c.Session == sessionId && c.DepartmentName == loggedInUser.DepartmentName);
                 if(resultExists != null){
-                    TempData["error"] = $"Records for {courseId} already exist for this session. Kindly preview and make changes if you have to or contact the ICT for support.";
+                    TempData["error"] = $"Records for {courseId} already exist for {loggedInUser.DepartmentName} for this session. Kindly preview and make changes if you have to or contact the ICT for support.";
                     return Redirect("/result-upload");
                 }
                 if (string.IsNullOrEmpty(courseId) || sessionId <= 0 || semesterId <= 0 || levelId <= 0)

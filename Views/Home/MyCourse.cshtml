@@ -1,4 +1,4 @@
-@model IEnumerable<rps.Models.Result>
+@model MyCoursePreview
 @{
     ViewData["Title"] = "Course Clean Sheet";
     var userRole = Context.Request.Cookies["UserRole"];
@@ -17,7 +17,9 @@
                       <div class="col-10 mx-auto" id="printableCard">
                             <div class="card">
                                 <div class="card-body">
-                                     <img src="assets/images/logo/logo.png" width="100" style="margin-left: 45%;" alt="#">
+                                    @foreach (var course in Model.Course.Where(x => x.Course.Code == @ViewBag.course))
+                                    {
+                                    <img src="assets/images/logo/logo.png" width="100" style="margin-left: 45%;" alt="#">
                                     <div class="container mx-auto text-center border-b-2 pb-4">
                                         <h4 class="text-lg font-semibold">EDO UNIVERSITY IYAMHO</h4>
                                         <h5 class="text-md font-medium">FACULTY OF ________________________________</h5>
@@ -26,12 +28,12 @@
                                         <h6 class="text-md font-medium">@ViewBag.session Session</h6>
                                         
                                         <div class="mt-4 text-sm">
-                                            <p><strong>Course Code:</strong> @ViewBag.course &nbsp; | &nbsp; <strong>Course Title:</strong> _______________________________________</p>
-                                            <p><strong>Department:</strong> @ViewBag.dpt &nbsp; | &nbsp; <strong>Level:</strong> @ViewBag.level &nbsp; | &nbsp; <strong>Credit Units:</strong> ____</p>
+                                            <p><strong>Course Code:</strong> @ViewBag.course &nbsp; | &nbsp; <strong>Course Title:</strong> @course.Course.Title</p>
+                                            <p><strong>Department:</strong> @ViewBag.dpt &nbsp; | &nbsp; <strong>Level:</strong> @ViewBag.level &nbsp; | &nbsp; <strong>Credit Units:</strong> @course.Course.CreditUnit</p>
                                             <p><strong>Total Number of Students:</strong> @ViewBag.count &nbsp; | &nbsp; <strong>Examination Date:</strong> _____________</p>
                                         </div>
                                     </div>
-
+                                    }
                                    @{
                                         var serialNumber = 1;
 
@@ -46,7 +48,7 @@
                                         }
 
                                         // Count grades from the model
-                                        foreach (var result in Model)
+                                        foreach (var result in Model.Result)
                                         {
                                             if (gradeCounts.ContainsKey(result.Grade))
                                             {
@@ -64,8 +66,8 @@
                                         int passedStudents = totalStudents - failedStudents;
                                     }
                                     @{
-                                        int totalNoStudents = Model.Count();
-                                        double? totalScores = Model.Sum(result => result.Total);
+                                        int totalNoStudents = Model.Result.Count();
+                                        double? totalScores = Model.Result.Sum(result => result.Total);
                                         double averageScore = totalStudents > 0 ? (double)totalScores / totalStudents : 0;
                                     }
                                     <div class="app-scroll table-responsive app-datatable-default">
@@ -75,14 +77,14 @@
                                                     <th>#</th>
                                                     <th>Matric No.</th>
                                                     <th>Student Name</th>
-                                                    <th>CA(30)</th>
-                                                    <th>Exam(70)</th>
+                                                    <th>CA(___)</th>
+                                                    <th>Exam(___)</th>
                                                     <th>Total(100)</th>
                                                     <th>Grade</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach (var result in Model)
+                                                @foreach (var result in Model.Result)
                                                 {
                                                     <tr>
                                                         <td>@serialNumber</td>
@@ -99,7 +101,7 @@
                                         </table>
                                     </div>
                                     @{
-                                        var groupedResults = Model
+                                        var groupedResults = Model.Result
                                             .GroupBy(r => r.Grade)
                                             .Select(g => new {
                                                 Grade = g.Key,
