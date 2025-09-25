@@ -23,4 +23,6 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<Remark> Remarks { get; set; }
     public DbSet<LevelAdviser> LevelAdvisers { get; set; }
+    public DbSet<ManualResult> ManualResults { get; set; }
+    public DbSet<ManualCGPA> ManualCGPAs { get; set; }
 }

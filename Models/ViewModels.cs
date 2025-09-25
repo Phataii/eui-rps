@@ -37,11 +37,17 @@ namespace rps.Models
         public User User { get; set; }
     }   
 
+    public class ManualResults
+    {
+        public List<Course>? Courses{ get; set; }
+        public List<Session>? Sessions{ get; set; }
+    }
+
     public class PreviewResults
     {
         public List<DepartmentBatch>? DepartmentBatches { get; set; }
-        public List<CourseAllocation>? Courses{ get; set; }
-        public List<Session>? Sessions{ get; set; }
+        public List<CourseAllocation>? Courses { get; set; }
+        public List<Session>? Sessions { get; set; }
     }
     public class CoursesAllocated
     {

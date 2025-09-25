@@ -39,7 +39,6 @@ namespace rps.Controllers
         }
         public async Task<IActionResult> Index()
         {
-
             return View();
         }
 
@@ -77,54 +76,104 @@ namespace rps.Controllers
         [Route("result-upload")]
         public async Task<IActionResult> Upload()
         {
-            var loggedInUser = await _userHelper.GetLoggedInUser(Request);
-            if (loggedInUser == null)
-            {
-                return Redirect("/");
-            }
-            // API URL and API Key
-            // string apiUrl = $"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.DepartmentId}";
-            string apiUrl = $"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.AISID}";
-            string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
-
-            // Initialize an HTTP Client
-            var client = _httpClientFactory.CreateClient();
-
-            // Add API Key to the 'X-API-Key' header
-            client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
-
             try
             {
-                // Make GET request to fetch courses
-                var response = await client.GetAsync(apiUrl);
+                // Get logged-in user safely
+                var loggedInUser = await _userHelper.GetLoggedInUser(Request);
+                if (loggedInUser == null)
+                {
+                    TempData["ErrorMessage"] = "You must be logged in to access this page.";
+                    return Redirect("/");
+                }
 
-                // Ensure a successful response
-                response.EnsureSuccessStatusCode();
+                // Default values in case API/database fail
+                var courses = new List<CourseAllocation>();
+                var sessions = new List<Session>();
+                var dptBatches = new List<DepartmentBatch>();
 
-                // Read response content
-                var content = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    string apiUrl = $"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.AISID}";
+                    string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
 
-                //Deserialize JSON content if necessary (optional);
-                var courses = JsonConvert.DeserializeObject<List<CourseAllocation>>(content);
+                    var client = _httpClientFactory.CreateClient();
 
-                var dptBatches = await _context.DepartmentBatches.Where(x => x.User == loggedInUser.Id).ToListAsync();
-                var sessions = await _context.Sessions.OrderByDescending(s => s.Id).ToListAsync();
+                    if (!string.IsNullOrEmpty(apiKey))
+                    {
+                        client.DefaultRequestHeaders.Remove("X-API-Key"); // prevent duplicate header error
+                        client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+                    }
+
+                    // Make GET request
+                    var response = await client.GetAsync(apiUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+
+                        if (!string.IsNullOrWhiteSpace(content))
+                        {
+                            try
+                            {
+                                courses = JsonConvert.DeserializeObject<List<CourseAllocation>>(content) ?? new List<CourseAllocation>();
+                            }
+                            catch (JsonException)
+                            {
+                                courses = new List<CourseAllocation>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        TempData["WarningMessage"] = $"API returned status: {response.StatusCode}";
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    TempData["WarningMessage"] = $"Could not fetch course allocations: {ex.Message}";
+                }
+
+                // Get department batches safely
+                try
+                {
+                    dptBatches = await _context.DepartmentBatches
+                                            .Where(x => x.User == loggedInUser.Id)
+                                            .ToListAsync() ?? new List<DepartmentBatch>();
+                }
+                catch
+                {
+                    dptBatches = new List<DepartmentBatch>();
+                }
+
+                // Get sessions safely
+                try
+                {
+                    sessions = await _context.Sessions
+                                            .OrderByDescending(s => s.Id)
+                                            .ToListAsync() ?? new List<Session>();
+                }
+                catch
+                {
+                    sessions = new List<Session>();
+                }
+
                 var model = new PreviewResults
                 {
                     DepartmentBatches = dptBatches,
                     Courses = courses,
                     Sessions = sessions
                 };
-                // Return the combined data to the View
+
                 return View(model);
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex)
             {
-                // Log or handle error
-                ModelState.AddModelError(string.Empty, $"An error occurred: {ex.Message}");
-                return View("Error"); // Redirect to an error view if needed
+                // Catch-all to avoid crashing
+                ModelState.AddModelError(string.Empty, $"Unexpected error: {ex.Message}");
+                return View("Error");
             }
         }
+
 
         [Route("user-roles")]
         public async Task<IActionResult> UserRoles()
@@ -273,14 +322,14 @@ namespace rps.Controllers
             {
                 // Fetch course details
                 var course = await FetchApiData<List<CourseAllocation>>($"https://edouniversity.edu.ng/api/v1/courseallocationsapi?lecturerId={loggedInUser.AISID}", apiKey);
-                
+
                 var model = new MyCoursePreview
                 {
                     Result = results,
                     Course = course
                 };
                 return View(model);
-            
+
             }
             catch (Exception ex)
             {
@@ -288,7 +337,7 @@ namespace rps.Controllers
                 return RedirectToAction("Error", "Home"); //Or a more specific error page
             }
 
-           
+
         }
 
 
@@ -737,6 +786,99 @@ namespace rps.Controllers
             var content = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<T>(content);
         }
+        //////////////////////
+        /// ////////////////
+        /// 
+        /// //////////////
+        /// 
+        /// 
+        /// 
+        /// MANUAL RESULT UPLOAD
+        [Route("students-result")]
+        public async Task<IActionResult> ManualResultUpload()
+        {
+            try
+            {
+                // Get logged-in user safely
+                var loggedInUser = await _userHelper.GetLoggedInUser(Request);
+                if (loggedInUser == null)
+                {
+                    TempData["ErrorMessage"] = "You must be logged in to access this page.";
+                    return Redirect("/"); 
+                }
+
+                // Default values in case API/database fail
+                var courses = new List<Course>();
+                var sessions = new List<Session>();
+
+                try
+                {
+                    string apiUrl = $"https://edouniversity.edu.ng/api/v1/coursesapi?departmentId={loggedInUser.DepartmentId}";
+                    string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
+
+                    var client = _httpClientFactory.CreateClient();
+
+                    if (!string.IsNullOrEmpty(apiKey))
+                    {
+                        client.DefaultRequestHeaders.Remove("X-API-Key"); // avoid duplicate header issue
+                        client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+                    }
+
+                    // Make GET request to fetch courses
+                    var response = await client.GetAsync(apiUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var content = await response.Content.ReadAsStringAsync();
+
+                        if (!string.IsNullOrWhiteSpace(content))
+                        {
+                            // Deserialize safely
+                            try
+                            {
+                                courses = JsonConvert.DeserializeObject<List<Course>>(content) ?? new List<Course>();
+                            }
+                            catch (JsonException)
+                            {
+                                // Log JSON parse error if needed
+                                courses = new List<Course>();
+                            }
+                        }
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    // Log error if needed
+                    TempData["WarningMessage"] = $"Could not fetch courses: {ex.Message}";
+                }
+                // Get sessions safely
+                try
+                {
+                    sessions = await _context.Sessions
+                                            .OrderByDescending(s => s.Id)
+                                            .ToListAsync() ?? new List<Session>();
+                }
+                catch
+                {
+                    sessions = new List<Session>();
+                }
+
+                var model = new ManualResults
+                {
+                    Courses = courses,
+                    Sessions = sessions,
+                };
+
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                // Catch-all: log and return error page without crashing
+                ModelState.AddModelError(string.Empty, $"Unexpected error: {ex.Message}");
+                return View("Error");
+            }
+        }
+
     }
     public class CsvRecord
     {
@@ -747,5 +889,6 @@ namespace rps.Controllers
         public string Exam { get; set; }
 
     }
-
+    
+    
 }

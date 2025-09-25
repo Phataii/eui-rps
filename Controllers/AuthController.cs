@@ -13,6 +13,7 @@ using Microsoft.Extensions.Caching.Memory;
 using rps.Services;
 using BCrypt.Net;
 using Humanizer;
+using System.Net;
 
 namespace rps.Controllers
 {
@@ -126,18 +127,14 @@ namespace rps.Controllers
         {
             var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
             var redirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI");
-            var state = Guid.NewGuid().ToString();
-
-            // Store in session
-            // HttpContext.Session.SetString("oauth_state", state);
-
             var scope = "openid email profile";
-            var googleLoginUrl = $"https://accounts.google.com/o/oauth2/v2/auth?" +
-                $"client_id={clientId}" +
-                $"&redirect_uri={redirectUri}" +
+
+            var googleLoginUrl =
+                "https://accounts.google.com/o/oauth2/v2/auth?" +
+                $"client_id={WebUtility.UrlEncode(clientId)}" +
+                $"&redirect_uri={WebUtility.UrlEncode(redirectUri)}" +
                 $"&response_type=code" +
-                $"&scope={scope}";
-            // $"&state={state}";
+                $"&scope={WebUtility.UrlEncode(scope)}";
 
             return Redirect(googleLoginUrl);
         }

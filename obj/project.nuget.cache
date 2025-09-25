@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "6gGqRsHw2RL8NqsMZnG7BmGZlJBvsz/y0kpOgB8PO/+lqzYenXhDl6U3fqgMXVGnTQNan+l4u+uhd6Ln7kY+DA==",
+  "dgSpecHash": "QKONlO26B/j1yc1ZmfXYUzbd4zGfkZ2o6gm5SA14WxEk+2Cep9kmpUcdn4hYql5Yp9dYrkzV72HtYpSsQ63PXw==",
   "success": true,
-  "projectFilePath": "/Users/home/rps/rps.csproj",
+  "projectFilePath": "/Users/home/Documents/eui-rps/rps.csproj",
   "expectedPackageFiles": [
     "/Users/home/.nuget/packages/bcrypt.net-next/4.0.3/bcrypt.net-next.4.0.3.nupkg.sha512",
     "/Users/home/.nuget/packages/bouncycastle.cryptography/2.5.1/bouncycastle.cryptography.2.5.1.nupkg.sha512",

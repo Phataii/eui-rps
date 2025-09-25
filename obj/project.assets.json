@@ -8081,11 +8081,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/home/rps/rps.csproj",
+      "projectUniqueName": "/Users/home/Documents/eui-rps/rps.csproj",
       "projectName": "rps",
-      "projectPath": "/Users/home/rps/rps.csproj",
+      "projectPath": "/Users/home/Documents/eui-rps/rps.csproj",
       "packagesPath": "/Users/home/.nuget/packages/",
-      "outputPath": "/Users/home/rps/obj/",
+      "outputPath": "/Users/home/Documents/eui-rps/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/home/.nuget/NuGet/NuGet.Config"
