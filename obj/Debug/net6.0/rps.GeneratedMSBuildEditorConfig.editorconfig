@@ -80,6 +80,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9SZW1hcmsuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[/Users/home/Documents/eui-rps/Views/Home/Result.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9SZXN1bHQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [/Users/home/Documents/eui-rps/Views/Home/ResultDetails.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9SZXN1bHREZXRhaWxzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
@@ -114,6 +118,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [/Users/home/Documents/eui-rps/Views/Home/UserRoles.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9Vc2VyUm9sZXMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/home/Documents/eui-rps/Views/Home/Verify.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9WZXJpZnkuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [/Users/home/Documents/eui-rps/Views/Shared/Error.cshtml]

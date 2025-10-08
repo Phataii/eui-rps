@@ -466,7 +466,6 @@ namespace rps.Controllers
 
 
         [HttpPost("manual-result-temp")]
-        [HttpPost("manual-result-temp")]
         public async Task<IActionResult> DownloadManualCsv([FromForm] int sessionId, [FromForm] int level)
         {
             // API URL and API Key
