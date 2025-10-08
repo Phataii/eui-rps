@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using rps.Data;
 
@@ -10,9 +11,10 @@ using rps.Data;
 namespace rps.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251006094607_resultUploadUpdate")]
+    partial class resultUploadUpdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -427,9 +429,8 @@ namespace rps.Data.Migrations
                     b.Property<int>("Credit")
                         .HasColumnType("int");
 
-                    b.Property<string>("Department")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                    b.Property<int>("Department")
+                        .HasColumnType("int");
 
                     b.Property<int>("Faculty")
                         .HasColumnType("int");
@@ -609,47 +610,6 @@ namespace rps.Data.Migrations
                     b.HasIndex("Session");
 
                     b.ToTable("Results");
-                });
-
-            modelBuilder.Entity("rps.Models.ResultAccess", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CodeExpiry")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CodeHash")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CurrentSessionToken")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("LastUsed")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("MatNumber")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("Published")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTime?>("SessionExpiry")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ResultAccesses");
                 });
 
             modelBuilder.Entity("rps.Models.Roles", b =>

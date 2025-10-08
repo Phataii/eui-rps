@@ -25,4 +25,5 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<LevelAdviser> LevelAdvisers { get; set; }
     public DbSet<ManualResult> ManualResults { get; set; }
     public DbSet<ManualCGPA> ManualCGPAs { get; set; }
+    public DbSet<ResultAccess> ResultAccesses { get; set; }
 }

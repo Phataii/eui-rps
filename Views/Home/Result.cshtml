@@ -1,0 +1,563 @@
+@model string
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Result - Edo University</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .result-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin: 2rem auto;
+            max-width: 1000px;
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .school-logo {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-weight: bold;
+            color: #1e3c72;
+            font-size: 14px;
+            border: 3px solid gold;
+        }
+        
+        .student-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .info-item {
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        
+        .info-value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .semester-section {
+            margin: 2rem 0;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .semester-header {
+            background: #2a5298;
+            color: white;
+            padding: 1rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .results-table {
+            margin: 0;
+        }
+        
+        .results-table th {
+            background: #1e3c72;
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-weight: 600;
+        }
+        
+        .results-table td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            border-color: #e9ecef;
+        }
+        
+        .semester-summary {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            font-weight: 600;
+        }
+        
+        .grade-point-info {
+            background: #e8f4f8;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .gpa-section {
+            background: #1e3c72;
+            color: white;
+            padding: 1.5rem;
+            border-top: 2px solid #b8d8e6;
+        }
+        
+        .gpa-display {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .action-buttons {
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+        
+        .btn-logout {
+            background: linear-gradient(135deg, #dc3545, #e35d6a);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+        
+        .grade-A { color: #28a745; font-weight: bold; }
+        .grade-B { color: #17a2b8; font-weight: bold; }
+        .grade-C { color: #ffc107; font-weight: bold; }
+        .grade-D { color: #fd7e14; font-weight: bold; }
+        .grade-E { color: #dc3545; font-weight: bold; }
+        .grade-F { color: #dc3545; font-weight: bold; }
+        
+        .grade-point-scale {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 0.5rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        
+        .grade-point-item {
+            background: white;
+            padding: 0.5rem;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        @@media print {
+            body { background: white !important; }
+            .action-buttons { display: none !important; }
+            .result-container { box-shadow: none !important; margin: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="result-container">
+            <!-- Header Section -->
+            <div class="header-section">
+                <div class="school-logo">EUI</div>
+                <h1 class="h3 mb-2">EDO STATE UNIVERSITY, IYAMHO</h1>
+                <p class="mb-0 opacity-75">Office of the Registrar - Transcript Division</p>
+                <h2 class="h4 mt-3 mb-0">STUDENT ACADEMIC RESULT</h2>
+            </div>
+            
+            <!-- Student Information -->
+            <div class="student-info">
+                <div class="info-grid" id="studentInfo">
+                    <div class="info-item">
+                        <div class="info-label">MATRICULATION NUMBER</div>
+                        <div class="info-value" id="matNumber">@Model</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">STUDENT NAME</div>
+                        <div class="info-value" id="studentName">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">LEVEL</div>
+                        <div class="info-value" id="studentLevel">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">DEPARTMENT</div>
+                        <div class="info-value" id="studentDepartment">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">SESSION</div>
+                        <div class="info-value" id="studentSession">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">DATE GENERATED</div>
+                        <div class="info-value" id="generationDate">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grade Point Scale -->
+            <div class="grade-point-info">
+                <div class="info-label text-center mb-2">GRADE POINT SCALE</div>
+                <div class="grade-point-scale">
+                    <div class="grade-point-item grade-A">A = 5</div>
+                    <div class="grade-point-item grade-B">B = 4</div>
+                    <div class="grade-point-item grade-C">C = 3</div>
+                    <div class="grade-point-item grade-D">D = 2</div>
+                    <div class="grade-point-item grade-E">E = 1</div>
+                    <div class="grade-point-item grade-F">F = 0</div>
+                </div>
+            </div>
+            
+            <!-- Results will be populated here -->
+            <div id="resultsContainer">
+                <div class="text-center text-muted py-4">Loading results...</div>
+            </div>
+            
+            <!-- CGPA Section -->
+            <div class="gpa-section text-center" id="cgpaSection" style="display: none;">
+                <div class="row justify-content-center">
+                    <div class="col-md-4 mb-2">
+                        <div class="info-label text-white">CUMULATIVE GPA (CGPA)</div>
+                        <div class="gpa-display text-warning" id="cgpaDisplay">—</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button id="downloadBtn" class="btn-download" onclick="downloadResult()">
+                    📄 Download Result
+                </button>
+                <button id="printBtn" class="btn-download" onclick="window.print()">
+                    🖨️ Print Result
+                </button>
+                <button id="logoutBtn" class="btn-logout">
+                    🚪 Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        // Grade point mapping
+        const gradePoints = {
+            'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1, 'F': 0
+        };
+
+        async function loadResult() {
+            const matNumber = "@Model";
+            const resultsContainer = document.getElementById("resultsContainer");
+            const studentName = document.getElementById("studentName");
+            const studentLevel = document.getElementById("studentLevel");
+            const studentDepartment = document.getElementById("studentDepartment");
+            const studentSession = document.getElementById("studentSession");
+            const cgpaSection = document.getElementById("cgpaSection");
+            const cgpaDisplay = document.getElementById("cgpaDisplay");
+
+            if (!matNumber) {
+                resultsContainer.innerHTML = `<div class="text-center text-danger py-4">Invalid request...</div>`;
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/result/get?matNumber=${encodeURIComponent(matNumber)}`);
+                
+                if (response.ok) {
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        resultsContainer.innerHTML = `<div class="text-center text-warning py-4">No results found for this session.</div>`;
+                        return;
+                    }
+
+                    // Update student information from first result
+                    if (results[0]) {
+                        studentName.textContent = results[0].name || "—";
+                        studentLevel.textContent = (results[0].level || "—") + "00";
+                        studentDepartment.textContent = results[0].department || "—";
+                        studentSession.textContent = results[0].session || "—";
+                    }
+
+                    // Group results by semester
+                    const semesters = groupResultsBySemester(results);
+                    
+                    // Display results by semester in order (First then Second)
+                    displaySemesterResults(semesters, resultsContainer);
+                    
+                    // Calculate and display CGPA
+                    const cgpa = calculateCGPA(semesters);
+                    if (cgpa !== null) {
+                        cgpaDisplay.textContent = cgpa.toFixed(2);
+                        cgpaSection.style.display = 'block';
+                    }
+
+                } else if (response.status === 401) {
+                    window.location.href = "/Result/Verify";
+                } else {
+                    resultsContainer.innerHTML = `<div class="text-center text-danger py-4">Unable to load results. Please try again later.</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContainer.innerHTML = `<div class="text-center text-danger py-4">Error connecting to server. Please check your internet connection.</div>`;
+            }
+        }
+
+       function groupResultsBySemester(results) {
+            const semesters = {
+                'First': [],
+                'Second': []
+            };
+            
+            results.forEach(result => {
+                // Handle numeric semester values (1 or 2)
+                const semValue = parseInt(result.semester, 10);
+                console.log(result.semester)
+                const semesterKey = semValue === 2 ? 'Second' : 'First'; // Default to First if unknown
+
+                // Calculate grade point and quality point
+                const gradePoint = gradePoints[result.grade?.toUpperCase()] || 0;
+                const qualityPoint = (parseFloat(result.credit) || 0) * gradePoint;
+                
+                semesters[semesterKey].push({
+                    ...result,
+                    gradePoint: gradePoint,
+                    qualityPoint: qualityPoint
+                });
+            });
+            
+            return semesters;
+        }
+
+        function displaySemesterResults(semesters, container) {
+            let html = '';
+            let semesterGPAs = [];
+            
+            // Process semesters in order: First then Second
+            const semesterOrder = ['First', 'Second'];
+            
+            semesterOrder.forEach(semesterName => {
+                const semesterResults = semesters[semesterName];
+                
+                if (semesterResults.length > 0) {
+                    const semesterGPA = calculateSemesterGPA(semesterResults);
+                    semesterGPAs.push(semesterGPA);
+                    
+                    html += `
+                        <div class="semester-section">
+                            <div class="semester-header">
+                                ${semesterName.toUpperCase()} SEMESTER
+                            </div>
+                            <table class="table table-striped results-table">
+                                <thead>
+                                    <tr>
+                                        <th>COURSE CODE</th>
+                                        <th>COURSE TITLE</th>
+                                        <th>CREDIT UNIT</th>
+                                        <th>GRADE</th>
+                                        <th>GRADE POINT</th>
+                                        <th>QUALITY POINT</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    let totalCredits = 0;
+                    let totalQualityPoints = 0;
+                    
+                    semesterResults.forEach(result => {
+                        const gradeClass = getGradeClass(result.grade);
+                        html += `
+                            <tr>
+                                <td><strong>${result.courseCode || '—'}</strong></td>
+                                <td>${result.title || '—'}</td>
+                                <td>${result.credit || '—'}</td>
+                                <td class="${gradeClass}">${result.grade || '—'}</td>
+                                <td>${result.gradePoint || '—'}</td>
+                                <td><strong>${result.qualityPoint ? result.qualityPoint.toFixed(1) : '—'}</strong></td>
+                            </tr>
+                        `;
+                        
+                        totalCredits += parseFloat(result.credit) || 0;
+                        totalQualityPoints += result.qualityPoint || 0;
+                    });
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                            <div class="semester-summary">
+                                <div class="row text-center">
+                                    <div class="col-md-4">
+                                        <strong>Total Credits:</strong> ${totalCredits.toFixed(1)}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Total Quality Points:</strong> ${totalQualityPoints.toFixed(1)}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Semester GPA:</strong> ${semesterGPA.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Show empty semester section if no results
+                    html += `
+                        <div class="semester-section">
+                            <div class="semester-header">
+                                ${semesterName.toUpperCase()} SEMESTER
+                            </div>
+                            <div class="no-results">
+                                No courses registered for this semester
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function calculateSemesterGPA(semesterResults) {
+            let totalCredits = 0;
+            let totalQualityPoints = 0;
+            
+            semesterResults.forEach(result => {
+                const credits = parseFloat(result.credit) || 0;
+                totalCredits += credits;
+                totalQualityPoints += result.qualityPoint || 0;
+            });
+            
+            return totalCredits > 0 ? totalQualityPoints / totalCredits : 0;
+        }
+
+        function calculateCGPA(semesters) {
+            let cumulativeCredits = 0;
+            let cumulativeQualityPoints = 0;
+            
+            Object.keys(semesters).forEach(semesterName => {
+                const semesterResults = semesters[semesterName];
+                
+                semesterResults.forEach(result => {
+                    const credits = parseFloat(result.credit) || 0;
+                    cumulativeCredits += credits;
+                    cumulativeQualityPoints += result.qualityPoint || 0;
+                });
+            });
+            
+            return cumulativeCredits > 0 ? cumulativeQualityPoints / cumulativeCredits : null;
+        }
+
+        function getGradeClass(grade) {
+            if (!grade) return '';
+            const upperGrade = grade.toUpperCase();
+            switch(upperGrade) {
+                case 'A': return 'grade-A';
+                case 'B': return 'grade-B';
+                case 'C': return 'grade-C';
+                case 'D': return 'grade-D';
+                case 'E': return 'grade-E';
+                case 'F': return 'grade-F';
+                default: return '';
+            }
+        }
+
+        async function downloadResult() {
+            const element = document.querySelector('.result-container');
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgWidth = 210;
+            const pageHeight = 295;
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            let heightLeft = imgHeight;
+
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            const studentName = document.getElementById('studentName').textContent;
+            const fileName = `Result_${studentName.replace(/\s+/g, '_')}_${"@Model"}.pdf`;
+            pdf.save(fileName);
+        }
+
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+            const matNumber = "@Model";
+            
+            await fetch("/api/result/logout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(matNumber)
+            });
+
+            window.location.href = "/Verify";
+        });
+
+        // Load results when page loads
+        document.addEventListener('DOMContentLoaded', loadResult);
+    </script>
+</body>
+</html>

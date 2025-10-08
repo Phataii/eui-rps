@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc;
 using CsvHelper.TypeConversion;
 using Newtonsoft.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 
 namespace rps.Services
@@ -19,7 +21,7 @@ namespace rps.Services
         public ResultService(ApplicationDbContext context, IHttpClientFactory httpClientFactory)
         {
             _context = context;
-             _httpClientFactory = httpClientFactory;
+            _httpClientFactory = httpClientFactory;
         }
 
 
@@ -189,43 +191,47 @@ namespace rps.Services
         }
         public async Task<UploadResultResponse> AddSingleResult(string studentId, string StudentName, string courseId, int session, int semester, double ca, double exam, int levelId, string uploader, string dptN, int departmentId, string reference)
         {
-            try{
-                  double totalScore = ca + exam;
+            try
+            {
+                double totalScore = ca + exam;
 
-                 var gradeScale = await _context.Grades
-                        .Where(g => g.Type == "ug" && g.Approved && g.DepartmentId == departmentId)
-                        .ToListAsync();
+                var gradeScale = await _context.Grades
+                       .Where(g => g.Type == "ug" && g.Approved && g.DepartmentId == departmentId)
+                       .ToListAsync();
 
-                         // Determine the grade
-                        var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
-                        string gradeName = grade?.GradeName ?? "N/A";
+                // Determine the grade
+                var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
+                string gradeName = grade?.GradeName ?? "N/A";
 
-                    var result = new Result{
-                        ResultId = reference,
-                        StudentId = studentId,
-                        CourseId = courseId,
-                        Session = session,
-                        Semester = semester,
-                        CA = ca,
-                        Exam = exam,
-                        Upgrade = 0,
-                        Created = DateTime.Now,
-                        LevelId = levelId,
-                        UploadedBy = uploader,
-                        Total = totalScore,
-                        Grade = gradeName,
-                        IsCO = gradeName == "F",
-                        DepartmentName = dptN,
-                        StudentName = StudentName
+                var result = new Result
+                {
+                    ResultId = reference,
+                    StudentId = studentId,
+                    CourseId = courseId,
+                    Session = session,
+                    Semester = semester,
+                    CA = ca,
+                    Exam = exam,
+                    Upgrade = 0,
+                    Created = DateTime.Now,
+                    LevelId = levelId,
+                    UploadedBy = uploader,
+                    Total = totalScore,
+                    Grade = gradeName,
+                    IsCO = gradeName == "F",
+                    DepartmentName = dptN,
+                    StudentName = StudentName
                 };
-                        await _context.Results.AddAsync(result);
-                        await _context.SaveChangesAsync();
-                        return new UploadResultResponse
-                    {
-                        Success = true,
-                        Message = $"A record for {StudentName} has been uploadeded successfully for {courseId}.",
-                    };
-            }catch(Exception ex){
+                await _context.Results.AddAsync(result);
+                await _context.SaveChangesAsync();
+                return new UploadResultResponse
+                {
+                    Success = true,
+                    Message = $"A record for {StudentName} has been uploadeded successfully for {courseId}.",
+                };
+            }
+            catch (Exception ex)
+            {
                 return new UploadResultResponse
                 {
                     Success = false,
@@ -283,7 +289,7 @@ namespace rps.Services
                     Faculty = facultyId,
                     Status = "Pending",
                     Registry = "Pending",
-                    CreatedAt =  DateTime.Now
+                    CreatedAt = DateTime.Now
                     // Set other properties as needed
                 };
 
@@ -302,7 +308,7 @@ namespace rps.Services
                 return $"An error occurred: {ex.Message}";
             }
 
-           
+
         }
 
         public async Task<string> ApproveOrDecline(string course, int session, string status, string who, string dpt)
@@ -317,12 +323,16 @@ namespace rps.Services
             if (who == "hod")
             {
                 departmentBatch.HODStatus = status;
-            }else if(who == "dean"){
+            }
+            else if (who == "dean")
+            {
                 departmentBatch.DeanStatus = status;
-            }else if(who == "lecturer"){
+            }
+            else if (who == "lecturer")
+            {
                 departmentBatch.LecturerStatus = status;
             }
-            
+
             // var hod = await _context.Users.FirstOrDefaultAsync(x => x.DepartmentId == departmentBatch.DepartmentId && );
             await _context.SaveChangesAsync(); // Save the updated status to the database
 
@@ -338,15 +348,16 @@ namespace rps.Services
             {
                 return "Can't find result for the department";
             }
-            foreach (var faculty in facultyBatch){
+            foreach (var faculty in facultyBatch)
+            {
                 faculty.Status = status;
             }
             await _context.SaveChangesAsync(); // Save the updated status to the database
 
             return "Done";
         }
-        
-       public async Task<string> UpgradeBulkResult(string course, int session, int score, int departmentId)
+
+        public async Task<string> UpgradeBulkResult(string course, int session, int score, int departmentId)
         {
             try
             {
@@ -416,10 +427,152 @@ namespace rps.Services
             {
                 // Log the exception (you might want to use a logging framework here)
                 // For now, we'll just return an error message
-               return $"An error occurred: {ex.Message}";
+                return $"An error occurred: {ex.Message}";
             }
         }
 
+        public async Task<UploadResultResponse> UploadManualResultFromCsvAsync(
+        IFormFile file,
+        int sessionId,
+        int semesterId,
+        int levelId,
+        int facultyId,
+        string uploader,
+        string departmentId)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return new UploadResultResponse
+                    {
+                        Success = false,
+                        Message = "No file uploaded.",
+                        Count = 0
+                    };
+                }
+                
+                using (var reader = new StreamReader(file.OpenReadStream()))
+                using (var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    TrimOptions = TrimOptions.Trim,
+                    IgnoreBlankLines = true,
+                    MissingFieldFound = null,
+                    HeaderValidated = null
+                }))
+                {
+                    var records = csv.GetRecords<ManualResultCsvRecord>().ToList();
+
+                    if (records.Count == 0)
+                    {
+                        return new UploadResultResponse
+                        {
+                            Success = false,
+                            Message = "CSV file is empty or invalid format.",
+                            Count = 0
+                        };
+                    }
+
+                    // 1️⃣ Save manual results
+                    var results = records.Select(record => new ManualResult
+                    {
+                        UploadedBy = uploader,
+                        Name = record.Name,
+                        MatNumber = record.MatNumber,
+                        Faculty = facultyId,
+                        Department = departmentId,
+                        Level = levelId,
+                        Session = sessionId,
+                        Semester = semesterId,
+                        CourseCode = record.CourseCode,
+                        Title = record.Title,
+                        Credit = record.Credit,
+                        Grade = record.Grade,
+                        // GradePoint = record.GradePoint,
+                        // GPA = record.GPA,
+                        // CGPA = record.CGPA,
+                        CreatedAt = DateTime.UtcNow
+                    }).ToList();
+
+                    await _context.ManualResults.AddRangeAsync(results);
+                    await _context.SaveChangesAsync();
+
+                    // 2️⃣ Generate unique codes for each student (matric number)
+                    var matNumbers = results.Select(r => r.MatNumber).Distinct().ToList();
+                    var accessList = new List<ResultAccess>();
+                    var codesForExport = new List<(string MatNumber, string Code)>(); // if you want to email them later
+
+                    foreach (var mat in matNumbers)
+                    {
+                        // Generate random code
+                        var code = GenerateUniqueCode();
+                        var hash = HashCode(code);
+
+                        var access = await _context.ResultAccesses
+                            .FirstOrDefaultAsync(x => x.MatNumber == mat);
+
+                        if (access == null)
+                        {
+                            accessList.Add(new ResultAccess
+                            {
+                                MatNumber = mat,
+                                CodeHash = hash,
+                                Code = code,
+                                CodeExpiry = DateTime.UtcNow.AddDays(7),
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                        else
+                        {
+                            // Update existing code (if re-uploaded)
+                            access.CodeHash = hash;
+                            access.CodeExpiry = DateTime.UtcNow.AddDays(7);
+                            access.CreatedAt = DateTime.UtcNow;
+                        }
+
+                        // Save unhashed code for communication (e.g., email/SMS)
+                        // codesForExport.Add((mat, code));
+                    }
+
+                    if (accessList.Count > 0)
+                        await _context.ResultAccesses.AddRangeAsync(accessList);
+
+                    await _context.SaveChangesAsync();
+
+                    // 🔐 Optional: Export or email the new codes
+                    // You can log them temporarily for testing
+                    foreach (var c in codesForExport)
+                    {
+                        Console.WriteLine($"Mat: {c.MatNumber} => Code: {c.Code}");
+                    }
+
+                    return new UploadResultResponse
+                    {
+                        Success = true,
+                        Message = $"{results.Count} records uploaded successfully and access codes generated for {matNumbers.Count} students.",
+                        Count = results.Count
+                    };
+                }
+            }
+            catch (HeaderValidationException)
+            {
+                return new UploadResultResponse
+                {
+                    Success = false,
+                    Message = "Invalid CSV headers. Please ensure they match the required format.",
+                    Count = 0
+                };
+            }
+            catch (Exception ex)
+            {
+                return new UploadResultResponse
+                {
+                    Success = false,
+                    Message = $"Error: {ex} - Contact ICT for support.",
+                    Count = 0
+                };
+            }
+        }
 
         public async Task<string> UpgradeSingleResult(int id, string studentId, double score, int departmentId)
         {
@@ -447,9 +600,9 @@ namespace rps.Services
                         resultToUpgrade.Upgrade = score;
                         await _context.SaveChangesAsync();
 
-                         var gradeScale = await _context.Grades
-                            .Where(g => g.Type == "ug" && g.DepartmentId == departmentId && g.Approved)
-                            .ToListAsync();
+                        var gradeScale = await _context.Grades
+                           .Where(g => g.Type == "ug" && g.DepartmentId == departmentId && g.Approved)
+                           .ToListAsync();
 
                         double? totalScore = resultToUpgrade.CA + resultToUpgrade.Exam + resultToUpgrade.Upgrade;
                         var grade = gradeScale.FirstOrDefault(g => totalScore >= g.MinScore && totalScore <= g.MaxScore);
@@ -549,7 +702,41 @@ namespace rps.Services
                 throw;
             }
         }
-}
+
+
+
+
+        /////////////
+        /// 
+        /// 
+        /// 
+        /// TEMPORARY RESULT LOOKUP
+        /// 
+        /// 
+        /// 
+        
+        public static string GenerateUniqueCode(int length = 8)
+        {
+            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusing chars
+            var bytes = new byte[length];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(bytes);
+            var sb = new StringBuilder(length + 5);
+            for (int i = 0; i < length; i++)
+            {
+                sb.Append(chars[bytes[i] % chars.Length]);
+            }
+            return "RSLT-" + sb.ToString();
+        }
+
+        private static string HashCode(string code)
+        {
+            using var sha = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(code);
+            var hash = sha.ComputeHash(bytes);
+            return Convert.ToBase64String(hash);
+        }
+    }
 
     public class ResultCsvRecord
     {
@@ -565,6 +752,19 @@ namespace rps.Services
         public bool Success { get; set; }
         public string Message { get; set; }
         public int Count { get; set; }
+    }
+// in Models or DTOs folder
+    public class ManualResultCsvRecord
+    {
+        public string Name { get; set; }
+        public string MatNumber { get; set; }
+        public string CourseCode { get; set; }
+        public string Title { get; set; }
+        public int Credit { get; set; }
+        public string Grade { get; set; }
+        public double GradePoint { get; set; }
+        public double GPA { get; set; }
+        public double CGPA { get; set; }
     }
 
 }

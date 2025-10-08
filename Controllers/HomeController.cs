@@ -804,53 +804,12 @@ namespace rps.Controllers
                 if (loggedInUser == null)
                 {
                     TempData["ErrorMessage"] = "You must be logged in to access this page.";
-                    return Redirect("/"); 
+                    return Redirect("/");
                 }
 
                 // Default values in case API/database fail
-                var courses = new List<Course>();
                 var sessions = new List<Session>();
 
-                try
-                {
-                    string apiUrl = $"https://edouniversity.edu.ng/api/v1/coursesapi?departmentId={loggedInUser.DepartmentId}";
-                    string apiKey = Environment.GetEnvironmentVariable("EUI_API_KEY");
-
-                    var client = _httpClientFactory.CreateClient();
-
-                    if (!string.IsNullOrEmpty(apiKey))
-                    {
-                        client.DefaultRequestHeaders.Remove("X-API-Key"); // avoid duplicate header issue
-                        client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
-                    }
-
-                    // Make GET request to fetch courses
-                    var response = await client.GetAsync(apiUrl);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var content = await response.Content.ReadAsStringAsync();
-
-                        if (!string.IsNullOrWhiteSpace(content))
-                        {
-                            // Deserialize safely
-                            try
-                            {
-                                courses = JsonConvert.DeserializeObject<List<Course>>(content) ?? new List<Course>();
-                            }
-                            catch (JsonException)
-                            {
-                                // Log JSON parse error if needed
-                                courses = new List<Course>();
-                            }
-                        }
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Log error if needed
-                    TempData["WarningMessage"] = $"Could not fetch courses: {ex.Message}";
-                }
                 // Get sessions safely
                 try
                 {
@@ -865,7 +824,6 @@ namespace rps.Controllers
 
                 var model = new ManualResults
                 {
-                    Courses = courses,
                     Sessions = sessions,
                 };
 
@@ -879,6 +837,22 @@ namespace rps.Controllers
             }
         }
 
+        [HttpGet("verify")]
+        public async Task<IActionResult> Verify()
+        {
+            return View();
+        }
+
+        [HttpGet("result")]
+        public IActionResult Result(string matNumber)
+        {
+            if (string.IsNullOrWhiteSpace(matNumber))
+                return RedirectToAction("Verify");
+            
+            // 👇 This passes the matric number into @Model
+            return View(model: matNumber);
+        }
+
     }
     public class CsvRecord
     {
@@ -887,8 +861,15 @@ namespace rps.Controllers
         public string? Department { get; set; }
         public string CA { get; set; }
         public string Exam { get; set; }
-
     }
-    
-    
+
+    public class ManaulCsvRecord
+    {
+        public string? Name { get; set; }
+        public string MatNo { get; set; }
+        public string? CourseCode { get; set; }
+        public string Title { get; set; }
+        public int Credit { get; set; }
+        public string Grade { get; set; }
+    }
 }
